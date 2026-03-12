@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     resend_api_key: str
     brave_api_key: str
+    anthropic_api_key: str
+    cron_secret: str
 
     class Config:
         env_file = ".env"
