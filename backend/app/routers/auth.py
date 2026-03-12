@@ -40,11 +40,27 @@ class LoginRequest(BaseModel):
 
 
 def _provision_defaults(user_id: str) -> None:
-    rows = [
-        {"user_id": user_id, "file_name": name, "content": content}
-        for name, content in _DEFAULT_CONFIGS
-    ]
-    supabase.table("agent_configs").upsert(rows, on_conflict="user_id,file_name").execute()
+    try:
+        # Insert default agent config row (settings-style)
+        supabase.table("agent_configs").upsert(
+            {
+                "user_id": user_id,
+                "scan_frequency": "weekly",
+                "outreach_tone": "professional",
+                "max_weekly_outreach": 5,
+                "focus_keywords": ["M&A", "tech transactions", "AI infrastructure"],
+            },
+            on_conflict="user_id",
+        ).execute()
+
+        # Store named markdown files in agent_memory_logs
+        for name, content in _DEFAULT_CONFIGS:
+            supabase.table("agent_memory_logs").upsert(
+                {"user_id": user_id, "memory_key": name, "memory_val": {"content": content}},
+                on_conflict="user_id,memory_key",
+            ).execute()
+    except Exception:
+        pass  # Non-fatal - user can configure later
 
 
 @router.post("/signup")
