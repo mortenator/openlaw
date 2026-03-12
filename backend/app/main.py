@@ -1,0 +1,30 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.routers import companies, contacts, crons, deliveries, signals, users
+
+app = FastAPI(
+    title="OpenLaw API",
+    description="AI chief of staff for deal lawyers",
+    version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(users.router)
+app.include_router(contacts.router)
+app.include_router(companies.router)
+app.include_router(signals.router)
+app.include_router(crons.router)
+app.include_router(deliveries.router)
+
+
+@app.get("/health")
+async def health_check() -> dict:
+    return {"status": "ok", "service": "openlaw-api"}
