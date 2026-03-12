@@ -41,7 +41,7 @@ export default function ContactsPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ name: '', role: '', email: '', tier: 2 })
+  const [form, setForm] = useState<{ name: string; role: string; email: string; tier: 1 | 2 | 3 }>({ name: '', role: '', email: '', tier: 2 })
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -163,7 +163,7 @@ export default function ContactsPage() {
               />
               <select
                 value={form.tier}
-                onChange={(e) => setForm({ ...form, tier: Number(e.target.value) })}
+                onChange={(e) => setForm({ ...form, tier: Number(e.target.value) as 1 | 2 | 3 })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
               >
                 <option value={1}>Tier 1 — VIP</option>
