@@ -33,7 +33,7 @@ export default function OnboardingCardPage() {
     })
   }, [])
 
-  const canContinue = firstName.trim() !== '' && lastName.trim() !== '' && firm.trim() !== ''
+  const canContinue = !!token && firstName.trim() !== '' && lastName.trim() !== '' && firm.trim() !== ''
 
   function togglePracticeArea(area: string) {
     setPracticeAreas((prev) =>

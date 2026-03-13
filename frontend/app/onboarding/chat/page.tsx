@@ -194,8 +194,11 @@ export default function OnboardingChatPage() {
     if (!token || openingDone) return
     setOpeningDone(true)
 
+    const timeouts: ReturnType<typeof setTimeout>[] = []
+
     // Trigger bg transition
     const t0 = setTimeout(() => setBgMounted(true), 50)
+    timeouts.push(t0)
 
     // Typing → message 1
     setIsTyping(true)
@@ -237,18 +240,18 @@ export default function OnboardingChatPage() {
               ])
               setPhase('letsgo')
             }, 800)
-            return () => clearTimeout(t5)
+            timeouts.push(t5)
           }, 400)
-          return () => clearTimeout(t4)
+          timeouts.push(t4)
         }, 800)
-        return () => clearTimeout(t3)
+        timeouts.push(t3)
       }, 600)
-      return () => clearTimeout(t2)
+      timeouts.push(t2)
     }, 800)
+    timeouts.push(t1)
 
     return () => {
-      clearTimeout(t0)
-      clearTimeout(t1)
+      timeouts.forEach(clearTimeout)
     }
   }, [token, firstName, openingDone])
 
