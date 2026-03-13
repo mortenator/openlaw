@@ -24,14 +24,20 @@ def _build_system_prompt(configs: list[dict]) -> str:
 
 @router.post("")
 async def query(payload: QueryRequest, current_user=Depends(get_current_user)) -> dict:
+    # Configs are stored in agent_memory_logs with memory_key / memory_val columns
     configs_result = (
-        supabase.table("agent_configs")
-        .select("file_name,content")
+        supabase.table("agent_memory_logs")
+        .select("memory_key,memory_val")
         .eq("user_id", current_user.id)
-        .in_("file_name", ["SOUL.md", "USER.md", "MEMORY.md"])
+        .in_("memory_key", ["SOUL.md", "USER.md", "MEMORY.md"])
         .execute()
     )
-    system_prompt = _build_system_prompt(configs_result.data or [])
+    # Normalise to {file_name, content} shape expected by _build_system_prompt
+    rows = [
+        {"file_name": r["memory_key"], "content": r["memory_val"].get("content", "") if isinstance(r["memory_val"], dict) else ""}
+        for r in (configs_result.data or [])
+    ]
+    system_prompt = _build_system_prompt(rows)
 
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
