@@ -22,3 +22,4 @@ alter table users add column if not exists watchlist_companies text[] default '{
 alter table users add column if not exists tracking_gap text;
 alter table users add column if not exists relationship_flag text;
 alter table users add column if not exists onboarding_complete boolean default false;
+alter table users add column if not exists practice_area text[] default '{}';

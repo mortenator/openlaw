@@ -1,9 +1,10 @@
 """Onboarding endpoints — card, chat, confirm, status."""
+import asyncio
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.database import supabase
 from app.deps import get_current_user
@@ -87,7 +88,23 @@ class CardPayload(BaseModel):
 
 class ChatPayload(BaseModel):
     step: int
-    answer: Any
+    answer: Union[str, list[str]]
+
+    @field_validator("answer")
+    @classmethod
+    def validate_answer(cls, v: Union[str, list[str]]) -> Union[str, list[str]]:
+        if isinstance(v, str):
+            if len(v) > 2000:
+                raise ValueError("answer must be 2000 characters or fewer")
+        elif isinstance(v, list):
+            if len(v) > 20:
+                raise ValueError("answer list must have 20 items or fewer")
+            for item in v:
+                if not isinstance(item, str):
+                    raise ValueError("each answer list item must be a string")
+                if len(item) > 200:
+                    raise ValueError("each answer list item must be 200 characters or fewer")
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -125,26 +142,25 @@ def _build_user_md(user_row: dict, answers: dict) -> str:
     practice_area = ", ".join(user_row.get("practice_area") or [])
     deal_types = ", ".join(_extract_deal_types(answers))
     geography = _extract_geography(answers.get("2", ""))
-    client_types = _extract_client_types(answers.get("2", ""))
     delivery_email = user_row.get("delivery_email") or user_row.get("email", "")
     delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
     watchlist = "\n".join(f"- {c}" for c in _extract_watchlist(answers.get("3", "")))
-    tracking_gap = answers.get("6", "")
+    tracking_gap = _sanitize(answers.get("6", ""))
+    watchlist_note = watchlist if watchlist else "_(no companies specified during setup)_"
 
     return f"""# USER.md — {full_name}
 
 - Name: {full_name}
-- Firm: {firm}
-- Role: {user_row.get('role', '')}
+- Firm: {_sanitize(firm)}
+- Role: {_sanitize(user_row.get('role', ''))}
 - Practice Areas: {practice_area}
 - Deal Types: {deal_types}
-- Geography: {geography}
-- Client Types: {client_types}
+- Geography / Client Types: {geography}
 - Email: {delivery_email}
 - Delivery: {delivery_schedule}
 
 ## Companies to Watch
-{watchlist}
+{watchlist_note}
 
 ## Setup Notes
 Tracking gap: {tracking_gap}"""
@@ -154,8 +170,9 @@ def _build_memory_md(user_row: dict, answers: dict) -> str:
     full_name = f"{user_row.get('first_name', '')} {user_row.get('last_name', '')}".strip()
     practice_area = ", ".join(user_row.get("practice_area") or [])
     watchlist = ", ".join(_extract_watchlist(answers.get("3", "")))
-    relationship_flag = answers.get("4", "")
-    tracking_gap = answers.get("6", "")
+    watchlist_display = watchlist if watchlist else "_(none specified)_"
+    relationship_flag = _sanitize(answers.get("4", ""))
+    tracking_gap = _sanitize(answers.get("6", ""))
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     return f"""# MEMORY.md — {full_name}
@@ -165,9 +182,9 @@ _Initialized {today} via onboarding._
 ## From Setup
 
 - Practice: {practice_area}
-- Focus clients: {watchlist}
-- Relationship flag: {relationship_flag} — has not been contacted in a while. Surface timing and angle at next check.
-- Tracking gap flagged: {tracking_gap}
+- Focus clients: {watchlist_display}
+- Relationship flag: {relationship_flag if relationship_flag else "_(none specified)_"} — has not been contacted in a while. Surface timing and angle at next check.
+- Tracking gap flagged: {tracking_gap if tracking_gap else "_(none specified)_"}
 
 ## Contacts
 (Import contacts via the Contacts tab to get started.)"""
@@ -175,14 +192,15 @@ _Initialized {today} via onboarding._
 
 def _build_heartbeat_md(user_row: dict, answers: dict) -> str:
     watchlist = ", ".join(_extract_watchlist(answers.get("3", "")))
+    watchlist_display = watchlist if watchlist else "_(no companies specified)_"
     delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
     delivery_email = user_row.get("delivery_email") or user_row.get("email", "")
-    relationship_flag = answers.get("4", "")
+    relationship_flag = _sanitize(answers.get("4", ""))
 
     return f"""# HEARTBEAT.md
 
 ## Daily Checks
-- Market signals: Scan for news on {watchlist}. Flag GC moves, deal announcements, funding rounds.
+- Market signals: Scan for news on {watchlist_display}. Flag GC moves, deal announcements, funding rounds.
 - Relationship health: Flag any tier-1 contacts not touched in >30 days.
 - Outreach drafts: If signals match a contact, draft a one-liner and queue it.
 
@@ -191,7 +209,7 @@ def _build_heartbeat_md(user_row: dict, answers: dict) -> str:
 - Email: {delivery_email}
 
 ## First Flag
-- {relationship_flag} has not been contacted recently. Surface timing and an outreach angle at next check."""
+- {relationship_flag if relationship_flag else "_(no relationship flagged during setup)_"} has not been contacted recently. Surface timing and an outreach angle at next check."""
 
 
 # ---------------------------------------------------------------------------
@@ -208,13 +226,14 @@ def _extract_deal_types(answers: dict) -> list[str]:
     return []
 
 
+def _sanitize(value: str) -> str:
+    """Strip leading/trailing whitespace and collapse internal newlines."""
+    return value.strip().replace("\n", " ").replace("\r", "") if isinstance(value, str) else ""
+
+
 def _extract_geography(answer: str) -> str:
     """Best-effort extraction — return the full answer as context."""
-    return answer.strip() if isinstance(answer, str) else ""
-
-
-def _extract_client_types(answer: str) -> str:
-    return answer.strip() if isinstance(answer, str) else ""
+    return _sanitize(answer)
 
 
 def _extract_watchlist(answer: Any) -> list[str]:
@@ -277,12 +296,20 @@ async def onboarding_card(
         }
     ).eq("id", user_id).execute()
 
-    answers_update = {"card": payload.model_dump()}
+    # Fetch existing session answers so we don't clobber any chat answers on revisit
+    existing_result = (
+        supabase.table("onboarding_sessions").select("answers").eq("user_id", user_id).execute()
+    )
+    existing_answers: dict = {}
+    if existing_result.data:
+        existing_answers = existing_result.data[0].get("answers") or {}
+
+    merged_answers = {**existing_answers, "card": payload.model_dump()}
     supabase.table("onboarding_sessions").upsert(
         {
             "user_id": user_id,
             "step": 1,
-            "answers": answers_update,
+            "answers": merged_answers,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         },
         on_conflict="user_id",
@@ -311,18 +338,18 @@ async def onboarding_chat(
 
     updated_answers = {**existing_answers, str(step): payload.answer}
 
+    # Determine next step response
+    next_step = step + 1
+
     supabase.table("onboarding_sessions").upsert(
         {
             "user_id": user_id,
-            "step": step,
+            "step": next_step,
             "answers": updated_answers,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         },
         on_conflict="user_id",
     ).execute()
-
-    # Determine next step response
-    next_step = step + 1
     if next_step > 6:
         return {
             "step": step,
@@ -361,7 +388,7 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     # Extract structured fields from answers
     deal_types = _extract_deal_types(answers)
     geography = _extract_geography(answers.get("2", ""))
-    client_types = _extract_client_types(answers.get("2", ""))
+    client_types = _extract_geography(answers.get("2", ""))
     watchlist_companies = _extract_watchlist(answers.get("3", ""))
     relationship_flag = answers.get("4", "")
     delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
@@ -391,11 +418,23 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
         "delivery_schedule": delivery_schedule,
     }
 
-    _generate_agent_configs(user_id, updated_user_row, answers)
+    try:
+        await asyncio.to_thread(_generate_agent_configs, user_id, updated_user_row, answers)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate agent configs: {exc}",
+        ) from exc
 
-    supabase.table("onboarding_sessions").update(
-        {"completed_at": datetime.now(timezone.utc).isoformat()}
-    ).eq("user_id", user_id).execute()
+    try:
+        supabase.table("onboarding_sessions").update(
+            {"completed_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("user_id", user_id).execute()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to finalise onboarding session: {exc}",
+        ) from exc
 
     return {"success": True, "redirect": "/dashboard"}
 
