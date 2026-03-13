@@ -16,6 +16,7 @@ from app.routers import (
     contacts_auth,
     crons_auth,
     jobs,
+    onboarding,
     query,
     signals_auth,
     suggestions,
@@ -53,6 +54,7 @@ app.include_router(contacts_auth.router)
 app.include_router(companies_auth.router)
 app.include_router(signals_auth.router)
 app.include_router(crons_auth.router)
+app.include_router(onboarding.router)
 
 
 @app.get("/health")
