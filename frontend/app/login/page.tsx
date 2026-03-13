@@ -3,8 +3,18 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+async function redirectAfterAuth(token: string, router: ReturnType<typeof useRouter>) {
+  try {
+    const status = await api.onboarding.status(token)
+    router.push(status.complete ? '/dashboard' : '/onboarding/card')
+  } catch {
+    router.push('/onboarding/card')
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -17,12 +27,16 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error, data } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      router.push('/dashboard')
+      const token = data.session?.access_token
+      if (token) {
+        await redirectAfterAuth(token, router)
+      } else {
+        router.push('/onboarding/card')
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Sign in failed')
-    } finally {
       setLoading(false)
     }
   }
@@ -40,13 +54,16 @@ export default function LoginPage() {
         const body = await res.json()
         throw new Error(body.detail || 'Sign up failed')
       }
-      // Sign in after successful signup
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error, data } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      router.push('/dashboard')
+      const token = data.session?.access_token
+      if (token) {
+        await redirectAfterAuth(token, router)
+      } else {
+        router.push('/onboarding/card')
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Sign up failed')
-    } finally {
       setLoading(false)
     }
   }
@@ -93,14 +110,14 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-2 px-4 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Loading...' : 'Sign In'}
+            {loading ? 'Loading…' : 'Sign In'}
           </button>
           <button
             onClick={handleSignUp}
             disabled={loading}
             className="w-full py-2 px-4 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
           >
-            {loading ? 'Loading...' : 'Sign Up'}
+            {loading ? 'Loading…' : 'Sign Up'}
           </button>
         </div>
       </div>

@@ -80,4 +80,36 @@ export const api = {
         body: JSON.stringify({ message }),
       }),
   },
+  onboarding: {
+    card: (
+      token: string,
+      data: { first_name: string; last_name: string; firm: string; role?: string; practice_area: string[] }
+    ) =>
+      apiFetch<{ step: number; next: string }>(token, '/onboarding/card', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    chat: (token: string, step: number, answer: unknown) =>
+      apiFetch<{
+        step: number
+        agent_message: string
+        input_type: 'chips' | 'free' | 'confirm'
+        options?: string[]
+      }>(token, '/onboarding/chat', {
+        method: 'POST',
+        body: JSON.stringify({ step, answer }),
+      }),
+
+    confirm: (token: string) =>
+      apiFetch<{ success: boolean; redirect: string }>(token, '/onboarding/confirm', {
+        method: 'POST',
+      }),
+
+    status: (token: string) =>
+      apiFetch<{ step: number; complete: boolean; answers: Record<string, unknown> }>(
+        token,
+        '/onboarding/status'
+      ),
+  },
 }
