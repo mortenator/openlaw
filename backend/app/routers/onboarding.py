@@ -264,9 +264,9 @@ def _extract_watchlist(answer: Any) -> list[str]:
 
 def _extract_delivery_schedule(answer: Any) -> str:
     if isinstance(answer, list) and answer:
-        return str(answer[0])
+        return _sanitize(str(answer[0]), max_len=200)
     if isinstance(answer, str):
-        return answer.strip()
+        return _sanitize(answer, max_len=200)
     return "morning"
 
 
@@ -303,23 +303,32 @@ async def onboarding_card(
 ) -> dict:
     user_id = current_user.id
 
+    # Sanitize names at the persistence boundary, not just at markdown generation time
+    clean_first = _sanitize(payload.first_name, max_len=100)
+    clean_last = _sanitize(payload.last_name, max_len=100)
+    clean_firm = _sanitize(payload.firm, max_len=200)
+    clean_role = _sanitize(payload.role, max_len=200)
+    clean_practice = [_sanitize(p, max_len=200) for p in payload.practice_area]
+
     card_update = supabase.table("users").update(
         {
-            "first_name": payload.first_name,
-            "last_name": payload.last_name,
-            "name": f"{payload.first_name} {payload.last_name}",
-            "firm": payload.firm,
-            "role": payload.role,
-            "practice_area": payload.practice_area,
+            "first_name": clean_first,
+            "last_name": clean_last,
+            "name": f"{clean_first} {clean_last}".strip(),
+            "firm": clean_firm,
+            "role": clean_role,
+            "practice_area": clean_practice,
         }
     ).eq("id", user_id).execute()
     if hasattr(card_update, "error") and card_update.error:
         raise HTTPException(status_code=500, detail=f"Failed to save profile: {card_update.error}")
 
-    # Fetch existing session answers so we don't clobber any chat answers on revisit
+    # Fetch existing session answers — error-check so a transient DB failure doesn't silently wipe chat answers
     existing_result = (
         supabase.table("onboarding_sessions").select("answers").eq("user_id", user_id).execute()
     )
+    if hasattr(existing_result, "error") and existing_result.error:
+        raise HTTPException(status_code=500, detail=f"Failed to read session: {existing_result.error}")
     existing_answers: dict = {}
     if existing_result.data:
         existing_answers = existing_result.data[0].get("answers") or {}
@@ -364,6 +373,10 @@ async def onboarding_chat(
         if "options" in first:
             resp["options"] = first["options"]
         return resp
+
+    # For non-bootstrap calls, answer must not be None
+    if payload.answer is None:
+        raise HTTPException(status_code=422, detail=f"Answer is required for step {step}")
 
     # Validate chip-step answers against known options
     step_config = _CHAT_STEPS.get(step, {})
@@ -440,7 +453,10 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
 
     answers: dict = session_result.data[0].get("answers") or {}
 
-    # Idempotency guard — if already complete, return immediately without re-running
+    # Idempotency guard — if already complete, return immediately without re-running.
+    # Note: two concurrent /confirm calls can both pass this check (TOCTOU race).
+    # Acceptable for MVP — the upsert absorbs the double-write cleanly. Add a DB-level
+    # UPDATE ... WHERE onboarding_complete = false RETURNING * if stricter guarantees are needed.
     user_check = supabase.table("users").select("onboarding_complete").eq("id", user_id).execute()
     if user_check.data and user_check.data[0].get("onboarding_complete"):
         return {"success": True, "redirect": "/dashboard", "idempotent": True}
