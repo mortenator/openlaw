@@ -10,40 +10,26 @@ interface StatusRow {
   value: string
 }
 
-function extractRows(answers: Record<string, unknown>): StatusRow[] {
-  const firstName = (answers.first_name as string) || ''
-  const lastName = (answers.last_name as string) || ''
+function extractRows(answers: Record<string, any>): StatusRow[] {
+  const card = (answers.card as Record<string, any>) || {}
+  const firstName = (card.first_name as string) || ''
+  const lastName = (card.last_name as string) || ''
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || '—'
 
-  const firm = (answers.firm as string) || '—'
+  const firm = (card.firm as string) || '—'
 
-  const practiceArea = Array.isArray(answers.practice_area)
-    ? (answers.practice_area as string[]).join(', ')
-    : (answers.practice_area as string) || '—'
-  const dealTypes = (answers.deal_types as string) || ''
-  const focus = dealTypes ? `${practiceArea} · ${dealTypes}` : practiceArea
+  const practiceArea = Array.isArray(card.practice_area)
+    ? (card.practice_area as string[]).join(' · ')
+    : '—'
+  const dealTypes = Array.isArray(answers['1'])
+    ? (answers['1'] as string[]).join(' · ')
+    : '—'
+  const focus = [practiceArea, dealTypes].filter(v => v !== '—').join(' · ') || '—'
 
-  const geography =
-    (answers.geography as string) ||
-    (answers.step_2 as string) ||
-    (answers.location as string) ||
-    '—'
-
-  const companies =
-    (answers.companies as string) ||
-    (answers.step_3 as string) ||
-    '—'
-
-  const delivery =
-    (answers.delivery as string) ||
-    (answers.step_5 as string) ||
-    'Morning brief · Email'
-
-  const firstFlag =
-    (answers.first_flag as string) ||
-    (answers.step_4 as string) ||
-    (answers.person as string) ||
-    '—'
+  const geography = (answers['2'] as string) || '—'
+  const companies = (answers['3'] as string) || '—'
+  const delivery = Array.isArray(answers['5']) ? (answers['5'][0] as string) : (answers['5'] as string) || 'Morning brief'
+  const firstFlag = (answers['4'] as string) || '—'
 
   return [
     { label: 'Set up for', value: fullName },
