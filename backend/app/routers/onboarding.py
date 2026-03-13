@@ -150,8 +150,8 @@ You remember everything you are told. You forget nothing unless instructed."""
 def _build_user_md(user_row: dict, answers: dict) -> str:
     full_name = _sanitize(f"{user_row.get('first_name', '')} {user_row.get('last_name', '')}".strip(), max_len=200)
     firm = user_row.get("firm", user_row.get("name", ""))
-    practice_area = ", ".join(user_row.get("practice_area") or [])
-    deal_types = ", ".join(_extract_deal_types(answers))
+    practice_area = ", ".join(_sanitize(p, max_len=200) for p in (user_row.get("practice_area") or []))
+    deal_types = ", ".join(_sanitize(d, max_len=200) for d in _extract_deal_types(answers))
     geography = _extract_geography(answers.get("2", ""))
     delivery_email = user_row.get("delivery_email") or user_row.get("email", "")
     delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
@@ -179,7 +179,7 @@ Tracking gap: {tracking_gap}"""
 
 def _build_memory_md(user_row: dict, answers: dict) -> str:
     full_name = _sanitize(f"{user_row.get('first_name', '')} {user_row.get('last_name', '')}".strip(), max_len=200)
-    practice_area = ", ".join(user_row.get("practice_area") or [])
+    practice_area = ", ".join(_sanitize(p, max_len=200) for p in (user_row.get("practice_area") or []))
     watchlist = ", ".join(_extract_watchlist(answers.get("3", "")))
     watchlist_display = watchlist if watchlist else "_(none specified)_"
     relationship_flag = _sanitize(answers.get("4", ""))
@@ -300,7 +300,7 @@ async def onboarding_card(
 ) -> dict:
     user_id = current_user.id
 
-    supabase.table("users").update(
+    card_update = supabase.table("users").update(
         {
             "first_name": payload.first_name,
             "last_name": payload.last_name,
@@ -310,6 +310,8 @@ async def onboarding_card(
             "practice_area": payload.practice_area,
         }
     ).eq("id", user_id).execute()
+    if hasattr(card_update, "error") and card_update.error:
+        raise HTTPException(status_code=500, detail=f"Failed to save profile: {card_update.error}")
 
     # Fetch existing session answers so we don't clobber any chat answers on revisit
     existing_result = (
@@ -346,6 +348,9 @@ async def onboarding_chat(
         raise HTTPException(status_code=400, detail="step must be between 0 and 6")
 
     # Step 0 (or step 1 with no answer): bootstrap — return the first question without saving
+    if step == 0 and payload.answer is not None:
+        raise HTTPException(status_code=400, detail="step=0 is a bootstrap call and must not include an answer")
+
     if step <= 1 and payload.answer is None:
         first = _CHAT_STEPS[1]
         resp: dict[str, Any] = {
@@ -436,7 +441,7 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
 
     # Update users row with extracted fields — onboarding_complete NOT set yet
     # (set only after agent configs are successfully written)
-    supabase.table("users").update(
+    structured_update = supabase.table("users").update(
         {
             "deal_types": deal_types,
             "geography": geography,
@@ -447,6 +452,8 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
             "tracking_gap": tracking_gap,
         }
     ).eq("id", user_id).execute()
+    if hasattr(structured_update, "error") and structured_update.error:
+        raise HTTPException(status_code=500, detail=f"Failed to update user profile: {structured_update.error}")
 
     # Merge updated fields into user_row for config generation
     updated_user_row = {
@@ -467,7 +474,9 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
         ) from exc
 
     # Configs written successfully — now mark onboarding complete
-    supabase.table("users").update({"onboarding_complete": True}).eq("id", user_id).execute()
+    complete_update = supabase.table("users").update({"onboarding_complete": True}).eq("id", user_id).execute()
+    if hasattr(complete_update, "error") and complete_update.error:
+        raise HTTPException(status_code=500, detail=f"Failed to mark onboarding complete: {complete_update.error}")
 
     try:
         supabase.table("onboarding_sessions").update(
