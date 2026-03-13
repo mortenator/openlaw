@@ -56,7 +56,7 @@ async def debug_query():
     try:
         client = anthropic.Anthropic()
         resp = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-3-5-haiku-20241022",
             max_tokens=10,
             messages=[{"role": "user", "content": "say hi"}]
         )
