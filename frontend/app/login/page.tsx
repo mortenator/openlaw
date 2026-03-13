@@ -30,6 +30,7 @@ export default function LoginPage() {
       const { error, data } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
       const token = data.session?.access_token
+      setLoading(false)
       if (token) {
         await redirectAfterAuth(token, router)
       } else {
@@ -57,6 +58,7 @@ export default function LoginPage() {
       const { error, data } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
       const token = data.session?.access_token
+      setLoading(false)
       if (token) {
         await redirectAfterAuth(token, router)
       } else {
