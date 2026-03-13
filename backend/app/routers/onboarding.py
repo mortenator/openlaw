@@ -88,11 +88,13 @@ class CardPayload(BaseModel):
 
 class ChatPayload(BaseModel):
     step: int
-    answer: Union[str, list[str]]
+    answer: Union[str, list[str], None] = None
 
     @field_validator("answer")
     @classmethod
-    def validate_answer(cls, v: Union[str, list[str]]) -> Union[str, list[str]]:
+    def validate_answer(cls, v: Union[str, list[str], None]) -> Union[str, list[str], None]:
+        if v is None:
+            return v
         if isinstance(v, str):
             if len(v) > 2000:
                 raise ValueError("answer must be 2000 characters or fewer")
@@ -325,8 +327,20 @@ async def onboarding_chat(
     user_id = current_user.id
     step = payload.step
 
-    if step < 1 or step > 6:
-        raise HTTPException(status_code=400, detail="step must be between 1 and 6")
+    if step < 0 or step > 6:
+        raise HTTPException(status_code=400, detail="step must be between 0 and 6")
+
+    # Step 0 (or step 1 with no answer): bootstrap — return the first question without saving
+    if step <= 1 and payload.answer is None:
+        first = _CHAT_STEPS[1]
+        resp: dict[str, Any] = {
+            "step": 1,
+            "agent_message": first["agent_message"],
+            "input_type": first["input_type"],
+        }
+        if "options" in first:
+            resp["options"] = first["options"]
+        return resp
 
     # Fetch existing session
     result = (
@@ -379,6 +393,15 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
         raise HTTPException(status_code=404, detail="No onboarding session found")
 
     answers: dict = session_result.data[0].get("answers") or {}
+
+    # Validate all required steps are present before generating configs
+    required_steps = ["card", "1", "2", "3", "4", "5", "6"]
+    missing = [s for s in required_steps if s not in answers]
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Onboarding incomplete — missing steps: {', '.join(missing)}. Complete all steps before confirming.",
+        )
 
     user_result = supabase.table("users").select("*").eq("id", user_id).execute()
     if not user_result.data:
