@@ -469,6 +469,8 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     # Acceptable for MVP — the upsert absorbs the double-write cleanly. Add a DB-level
     # UPDATE ... WHERE onboarding_complete = false RETURNING * if stricter guarantees are needed.
     user_check = supabase.table("users").select("onboarding_complete").eq("id", user_id).execute()
+    if hasattr(user_check, "error") and user_check.error:
+        raise HTTPException(status_code=500, detail=f"Failed to check onboarding status: {user_check.error}")
     if user_check.data and user_check.data[0].get("onboarding_complete"):
         return {"success": True, "redirect": "/dashboard", "idempotent": True}
 
@@ -556,11 +558,15 @@ async def onboarding_status(current_user=Depends(get_current_user)) -> dict:
         .eq("user_id", user_id)
         .execute()
     )
+    if hasattr(result, "error") and result.error:
+        raise HTTPException(status_code=500, detail=f"Failed to read session: {result.error}")
 
     if not result.data:
         return {"step": 0, "complete": False, "answers": {}}
 
     row = result.data[0]
+    # Note: answers dict is returned in full to support resume-session flow.
+    # Endpoint is auth-gated — this is the user's own data only.
     return {
         "step": row.get("step", 0),
         "complete": row.get("completed_at") is not None,
