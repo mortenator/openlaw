@@ -132,10 +132,10 @@ _AGENTS_MD = """# AGENTS.md — Operating Instructions
 
 
 def _build_soul(first_name: str) -> str:
-    first_name = _sanitize(first_name, max_len=100)
+    sanitized_name = _sanitize(first_name, max_len=100)
     return f"""# SOUL.md — OpenLaw Agent
 
-You are {first_name}'s OpenLaw agent. You are not a chatbot.
+You are {sanitized_name}'s OpenLaw agent. You are not a chatbot.
 
 You track relationships, surface deal signals, and draft outreach when the moment is right.
 You are proactive, precise, and never waste your principal's time.
@@ -365,13 +365,34 @@ async def onboarding_chat(
             resp["options"] = first["options"]
         return resp
 
+    # Validate chip-step answers against known options
+    step_config = _CHAT_STEPS.get(step, {})
+    if step_config.get("input_type") == "chips" and "options" in step_config:
+        valid_options = set(step_config["options"])
+        submitted = payload.answer if isinstance(payload.answer, list) else [payload.answer]
+        invalid = [a for a in submitted if a not in valid_options]
+        if invalid:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid option(s) for step {step}: {invalid}. Must be one of the provided choices.",
+            )
+
     # Fetch existing session
     result = (
-        supabase.table("onboarding_sessions").select("answers").eq("user_id", user_id).execute()
+        supabase.table("onboarding_sessions").select("answers", "step").eq("user_id", user_id).execute()
     )
     existing_answers: dict = {}
+    session_step: int = 0
     if result.data:
         existing_answers = result.data[0].get("answers") or {}
+        session_step = result.data[0].get("step") or 0
+
+    # Validate step sequence — must not skip more than one step ahead
+    if step > session_step + 1:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cannot jump to step {step} — current session is at step {session_step}. Complete steps in order.",
+        )
 
     updated_answers = {**existing_answers, str(step): payload.answer}
 
@@ -419,6 +440,11 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
 
     answers: dict = session_result.data[0].get("answers") or {}
 
+    # Idempotency guard — if already complete, return immediately without re-running
+    user_check = supabase.table("users").select("onboarding_complete").eq("id", user_id).execute()
+    if user_check.data and user_check.data[0].get("onboarding_complete"):
+        return {"success": True, "redirect": "/dashboard", "idempotent": True}
+
     # Validate all required steps are present before generating configs
     required_steps = ["card", "1", "2", "3", "4", "5", "6"]
     missing = [s for s in required_steps if s not in answers]
@@ -434,7 +460,7 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     user_row = user_result.data[0]
 
     # Extract structured fields from answers
-    deal_types = _extract_deal_types(answers)
+    deal_types = [_sanitize(d, max_len=200) for d in _extract_deal_types(answers)]
     geography = _extract_geography(answers.get("2", ""))
     client_types = _sanitize(answers.get("2", ""), max_len=500)
     watchlist_companies = _extract_watchlist(answers.get("3", ""))
