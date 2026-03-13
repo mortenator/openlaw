@@ -54,6 +54,7 @@ export default function OnboardingCardPage() {
         role: role.trim() || undefined,
         practice_area: practiceAreas,
       })
+      setLoading(false)
       router.push('/onboarding/chat')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -89,6 +90,7 @@ export default function OnboardingCardPage() {
             value={firm}
             onChange={(e) => setFirm(e.target.value)}
             placeholder="Sullivan & Cromwell"
+            aria-label="Firm"
             className="bg-transparent text-sm font-medium text-gray-700 placeholder-gray-400 focus:outline-none border-b border-transparent hover:border-gray-300 focus:border-gray-400 transition-colors pb-px max-w-[200px]"
           />
           <span className="text-xs text-gray-400 tracking-wide select-none">
@@ -108,6 +110,7 @@ export default function OnboardingCardPage() {
               value={role}
               onChange={(e) => setRole(e.target.value)}
               placeholder="Partner, M&A"
+              aria-label="Role"
               className="bg-transparent text-xs text-gray-500 placeholder-gray-400 focus:outline-none w-full"
             />
           </div>
@@ -118,6 +121,7 @@ export default function OnboardingCardPage() {
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="First"
+              aria-label="First name"
               className="w-1/2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C]/30"
             />
             <input
@@ -125,6 +129,7 @@ export default function OnboardingCardPage() {
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder="Last"
+              aria-label="Last name"
               className="w-1/2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C]/30"
             />
           </div>
