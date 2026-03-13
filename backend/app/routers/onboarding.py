@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.database import supabase
 from app.deps import get_current_user
@@ -79,11 +79,11 @@ _CHAT_STEPS: dict[int, dict[str, Any]] = {
 
 
 class CardPayload(BaseModel):
-    first_name: str
-    last_name: str
-    firm: str
-    role: str
-    practice_area: list[str]
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    firm: str = Field(..., min_length=1, max_length=200)
+    role: str = Field("", max_length=200)
+    practice_area: list[str] = Field(default_factory=list, max_length=20)
 
 
 class ChatPayload(BaseModel):
@@ -124,6 +124,7 @@ _AGENTS_MD = """# AGENTS.md — Operating Instructions
 
 
 def _build_soul(first_name: str) -> str:
+    first_name = _sanitize(first_name, max_len=100)
     return f"""# SOUL.md — OpenLaw Agent
 
 You are {first_name}'s OpenLaw agent. You are not a chatbot.
@@ -228,9 +229,11 @@ def _extract_deal_types(answers: dict) -> list[str]:
     return []
 
 
-def _sanitize(value: str) -> str:
-    """Strip leading/trailing whitespace and collapse internal newlines."""
-    return value.strip().replace("\n", " ").replace("\r", "") if isinstance(value, str) else ""
+def _sanitize(value: str, max_len: int = 500) -> str:
+    """Strip whitespace, collapse newlines, and truncate to max_len."""
+    if not isinstance(value, str):
+        return ""
+    return value.strip()[:max_len].replace("\n", " · ").replace("\r", "")
 
 
 def _extract_geography(answer: str) -> str:
@@ -270,10 +273,12 @@ def _generate_agent_configs(user_id: str, user_row: dict, answers: dict) -> None
         ("AGENTS.md", _AGENTS_MD),
     ]
     for name, content in configs:
-        supabase.table("agent_memory_logs").upsert(
+        result = supabase.table("agent_memory_logs").upsert(
             {"user_id": user_id, "memory_key": name, "memory_val": {"content": content}},
             on_conflict="user_id,memory_key",
         ).execute()
+        if hasattr(result, "error") and result.error:
+            raise RuntimeError(f"Failed to write config {name}: {result.error}")
 
 
 # ---------------------------------------------------------------------------
@@ -411,11 +416,11 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     # Extract structured fields from answers
     deal_types = _extract_deal_types(answers)
     geography = _extract_geography(answers.get("2", ""))
-    client_types = _extract_geography(answers.get("2", ""))
+    client_types = answers.get("2", "")  # full free-text answer; geography extracts a sub-part
     watchlist_companies = _extract_watchlist(answers.get("3", ""))
-    relationship_flag = answers.get("4", "")
+    relationship_flag = _sanitize(answers.get("4", ""))
     delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
-    tracking_gap = answers.get("6", "")
+    tracking_gap = _sanitize(answers.get("6", ""))
 
     # Update users row with onboarding data
     supabase.table("users").update(
