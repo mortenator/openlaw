@@ -238,13 +238,19 @@ def _extract_deal_types(answers: dict) -> list[str]:
 
 
 def _sanitize(value: Any, max_len: int = 500) -> str:
-    """Coerce to str, strip whitespace, collapse newlines, then truncate to max_len.
+    """Coerce to str, strip control chars + newlines, then truncate to max_len.
     Accepts lists (joins with comma) so free-text answers stored as lists don't silently drop."""
     if isinstance(value, list):
         value = ", ".join(str(v) for v in value)
     if not isinstance(value, str):
         return ""
-    return value.strip().replace("\n", " · ").replace("\r", "")[:max_len]
+    return (
+        value.strip()
+        .replace("\x00", "")   # null bytes — can silently truncate in some parsers
+        .replace("\n", " · ")
+        .replace("\r", "")
+        .replace("\t", " ")
+    )[:max_len]
 
 
 def _extract_geography(answer: str) -> str:
@@ -283,6 +289,7 @@ def _generate_agent_configs(user_id: str, user_row: dict, answers: dict) -> None
         ("HEARTBEAT.md", _build_heartbeat_md(user_row, answers)),
         ("AGENTS.md", _AGENTS_MD),
     ]
+    # UNIQUE INDEX on (user_id, memory_key) exists in migration 001 (idx_agent_memory_user_key)
     for name, content in configs:
         result = supabase.table("agent_memory_logs").upsert(
             {"user_id": user_id, "memory_key": name, "memory_val": {"content": content}},
@@ -394,6 +401,8 @@ async def onboarding_chat(
     result = (
         supabase.table("onboarding_sessions").select("answers", "step").eq("user_id", user_id).execute()
     )
+    if hasattr(result, "error") and result.error:
+        raise HTTPException(status_code=500, detail=f"Failed to read session: {result.error}")
     existing_answers: dict = {}
     session_step: int = 0
     if result.data:
@@ -448,6 +457,8 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     session_result = (
         supabase.table("onboarding_sessions").select("answers").eq("user_id", user_id).execute()
     )
+    if hasattr(session_result, "error") and session_result.error:
+        raise HTTPException(status_code=500, detail=f"Failed to read session: {session_result.error}")
     if not session_result.data:
         raise HTTPException(status_code=404, detail="No onboarding session found")
 
