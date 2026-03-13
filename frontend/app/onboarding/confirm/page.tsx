@@ -10,40 +10,53 @@ interface StatusRow {
   value: string
 }
 
-function extractRows(answers: Record<string, unknown>): StatusRow[] {
-  const firstName = (answers.first_name as string) || ''
-  const lastName = (answers.last_name as string) || ''
+interface OnboardingCard {
+  first_name?: string
+  last_name?: string
+  firm?: string
+  practice_area?: string | string[]
+}
+
+interface OnboardingAnswers {
+  card?: OnboardingCard
+  '1'?: string[]
+  '2'?: string
+  '3'?: string
+  '4'?: string
+  '5'?: string | string[]
+  [key: string]: unknown
+}
+
+const STEP = {
+  DEAL_TYPES: '1',
+  GEOGRAPHY: '2',
+  COMPANIES: '3',
+  FIRST_FLAG: '4',
+  DELIVERY: '5',
+} as const
+
+function extractRows(answers: OnboardingAnswers): StatusRow[] {
+  const card = answers.card || {}
+  const firstName = card.first_name || ''
+  const lastName = card.last_name || ''
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || '—'
 
-  const firm = (answers.firm as string) || '—'
+  const firm = card.firm || '—'
 
-  const practiceArea = Array.isArray(answers.practice_area)
-    ? (answers.practice_area as string[]).join(', ')
-    : (answers.practice_area as string) || '—'
-  const dealTypes = (answers.deal_types as string) || ''
-  const focus = dealTypes ? `${practiceArea} · ${dealTypes}` : practiceArea
+  const practiceArea = Array.isArray(card.practice_area)
+    ? card.practice_area.join(' · ')
+    : (card.practice_area as string) || '—'
+  const rawDealTypes = answers[STEP.DEAL_TYPES]
+  const dealTypes = Array.isArray(rawDealTypes) ? rawDealTypes.join(' · ') : '—'
+  const focus = [practiceArea, dealTypes].filter(v => v !== '—').join(' · ') || '—'
 
-  const geography =
-    (answers.geography as string) ||
-    (answers.step_2 as string) ||
-    (answers.location as string) ||
-    '—'
-
-  const companies =
-    (answers.companies as string) ||
-    (answers.step_3 as string) ||
-    '—'
-
-  const delivery =
-    (answers.delivery as string) ||
-    (answers.step_5 as string) ||
-    'Morning brief · Email'
-
-  const firstFlag =
-    (answers.first_flag as string) ||
-    (answers.step_4 as string) ||
-    (answers.person as string) ||
-    '—'
+  const geography = answers[STEP.GEOGRAPHY] || '—'
+  const companies = answers[STEP.COMPANIES] || '—'
+  const rawDelivery = answers[STEP.DELIVERY]
+  const delivery = Array.isArray(rawDelivery)
+    ? rawDelivery[0] || 'Morning brief'
+    : rawDelivery || 'Morning brief'
+  const firstFlag = answers[STEP.FIRST_FLAG] || '—'
 
   return [
     { label: 'Set up for', value: fullName },

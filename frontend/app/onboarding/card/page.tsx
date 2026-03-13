@@ -33,7 +33,8 @@ export default function OnboardingCardPage() {
     })
   }, [])
 
-  const canContinue = !!token && firstName.trim() !== '' && lastName.trim() !== '' && firm.trim() !== ''
+  const canContinue =
+    !!token && firstName.trim() !== '' && lastName.trim() !== '' && firm.trim() !== ''
 
   function togglePracticeArea(area: string) {
     setPracticeAreas((prev) =>
@@ -53,6 +54,7 @@ export default function OnboardingCardPage() {
         role: role.trim() || undefined,
         practice_area: practiceAreas,
       })
+      setLoading(false)
       router.push('/onboarding/chat')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -61,101 +63,109 @@ export default function OnboardingCardPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8F7F5]">
-      <div className="bg-white shadow-xl rounded-2xl max-w-md w-full p-8 mx-4">
-        {/* Wordmark */}
-        <div className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[#1B3A5C] mb-8">
-          OpenLaw
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8F7F5] px-6">
+      {/* Heading — outside the card, left-aligned */}
+      <div className="w-full max-w-xl mb-5">
+        <h1 className="text-2xl font-light text-gray-800">
+          Welcome to{' '}
+          <span className="font-normal text-[#1B3A5C]">OpenLaw</span>
+        </h1>
+      </div>
+
+      {error && (
+        <div className="w-full max-w-xl mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+          {error}
         </div>
+      )}
 
-        <h1 className="text-2xl font-light text-gray-900 mb-1">Welcome to OpenLaw</h1>
-        <p className="text-sm text-gray-400 mb-8">Let&apos;s build your profile.</p>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {/* Name row */}
-        <div className="flex gap-3 mb-4">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-400 mb-1">First Name</label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C] focus:border-[#1B3A5C]"
-              placeholder="Jordan"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-400 mb-1">Last Name</label>
-            <input
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C] focus:border-[#1B3A5C]"
-              placeholder="Smith"
-            />
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-400 mb-1">Firm</label>
+      {/* Business card — landscape, physical card feel */}
+      <div
+        className="w-full max-w-xl rounded-2xl shadow-md flex flex-col"
+        style={{ backgroundColor: '#ECEAE6', minHeight: '240px' }}
+      >
+        {/* Top row: firm (top-left) + brand (top-right) */}
+        <div className="flex items-start justify-between px-7 pt-6">
           <input
             type="text"
             value={firm}
             onChange={(e) => setFirm(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C] focus:border-[#1B3A5C]"
-            placeholder="Kirkland & Ellis"
+            placeholder="Sullivan & Cromwell"
+            aria-label="Firm"
+            className="bg-transparent text-sm font-medium text-gray-700 placeholder-gray-400 focus:outline-none border-b border-transparent hover:border-gray-300 focus:border-gray-400 transition-colors pb-px max-w-[200px]"
           />
+          <span className="text-xs text-gray-400 tracking-wide select-none">
+            ⚡ OpenLaw
+          </span>
         </div>
 
-        <div className="mb-6">
-          <label className="block text-xs font-medium text-gray-400 mb-1">Title / Role</label>
-          <input
-            type="text"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C] focus:border-[#1B3A5C]"
-            placeholder="Partner, M&A"
-          />
-        </div>
+        {/* Middle — empty space like a real business card */}
+        <div className="flex-1" style={{ minHeight: '72px' }} />
 
-        {/* Practice areas */}
-        <div className="mb-8">
-          <label className="block text-xs font-medium text-gray-400 mb-2">Practice Area</label>
-          <div className="flex flex-wrap gap-2">
-            {PRACTICE_AREAS.map((area) => {
-              const selected = practiceAreas.includes(area)
-              return (
-                <button
-                  key={area}
-                  onClick={() => togglePracticeArea(area)}
-                  className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                    selected
-                      ? 'bg-[#1B3A5C] text-white border border-[#1B3A5C]'
-                      : 'border border-[#1B3A5C]/30 text-gray-700 hover:border-[#1B3A5C]/60'
-                  }`}
-                >
-                  {area}
-                </button>
-              )
-            })}
+        {/* Bottom — name + title inputs */}
+        <div className="px-7 pb-6">
+          {/* Role — lighter, above name */}
+          <div className="mb-3">
+            <input
+              type="text"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              placeholder="Partner, M&A"
+              aria-label="Role"
+              className="bg-transparent text-xs text-gray-500 placeholder-gray-400 focus:outline-none w-full"
+            />
+          </div>
+          {/* First / Last name side by side */}
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="First"
+              aria-label="First name"
+              className="w-1/2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C]/30"
+            />
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Last"
+              aria-label="Last name"
+              className="w-1/2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C]/30"
+            />
           </div>
         </div>
+      </div>
 
-        {/* Continue */}
-        <div className="flex justify-end">
-          <button
-            onClick={handleSubmit}
-            disabled={!canContinue || loading}
-            className="bg-[#1B3A5C] text-white px-6 py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-40 hover:opacity-90"
-          >
-            {loading ? 'Saving…' : 'Continue →'}
-          </button>
+      {/* Below card — practice area + continue */}
+      <div className="w-full max-w-xl mt-5">
+        <p className="text-xs text-gray-400 mb-2 tracking-wide">Practice Area</p>
+        <div className="flex flex-wrap gap-2 mb-5">
+          {PRACTICE_AREAS.map((area) => {
+            const selected = practiceAreas.includes(area)
+            return (
+              <button
+                key={area}
+                onClick={() => togglePracticeArea(area)}
+                className={`rounded-full px-3 py-1 text-sm transition-colors ${
+                  selected
+                    ? 'bg-[#1B3A5C] text-white'
+                    : 'border border-[#1B3A5C]/30 text-gray-600 hover:border-[#1B3A5C]/60'
+                }`}
+              >
+                {area}
+              </button>
+            )
+          })}
         </div>
+
+        {/* Continue — plain text link, Hebbia style */}
+        <button
+          onClick={handleSubmit}
+          disabled={!canContinue || loading}
+          className="text-sm text-gray-700 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          {loading ? 'Saving…' : 'Continue →'}
+        </button>
       </div>
     </div>
   )
