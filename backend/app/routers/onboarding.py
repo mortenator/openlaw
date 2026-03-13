@@ -85,6 +85,14 @@ class CardPayload(BaseModel):
     role: str = Field("", max_length=200)
     practice_area: list[str] = Field(default_factory=list, max_length=20)
 
+    @field_validator("practice_area")
+    @classmethod
+    def validate_practice_area_items(cls, v: list[str]) -> list[str]:
+        for item in v:
+            if len(item) > 200:
+                raise ValueError("each practice area item must be 200 characters or fewer")
+        return v
+
 
 class ChatPayload(BaseModel):
     step: int
@@ -140,7 +148,7 @@ You remember everything you are told. You forget nothing unless instructed."""
 
 
 def _build_user_md(user_row: dict, answers: dict) -> str:
-    full_name = f"{user_row.get('first_name', '')} {user_row.get('last_name', '')}".strip()
+    full_name = _sanitize(f"{user_row.get('first_name', '')} {user_row.get('last_name', '')}".strip(), max_len=200)
     firm = user_row.get("firm", user_row.get("name", ""))
     practice_area = ", ".join(user_row.get("practice_area") or [])
     deal_types = ", ".join(_extract_deal_types(answers))
@@ -170,7 +178,7 @@ Tracking gap: {tracking_gap}"""
 
 
 def _build_memory_md(user_row: dict, answers: dict) -> str:
-    full_name = f"{user_row.get('first_name', '')} {user_row.get('last_name', '')}".strip()
+    full_name = _sanitize(f"{user_row.get('first_name', '')} {user_row.get('last_name', '')}".strip(), max_len=200)
     practice_area = ", ".join(user_row.get("practice_area") or [])
     watchlist = ", ".join(_extract_watchlist(answers.get("3", "")))
     watchlist_display = watchlist if watchlist else "_(none specified)_"
@@ -243,12 +251,12 @@ def _extract_geography(answer: str) -> str:
 
 def _extract_watchlist(answer: Any) -> list[str]:
     if isinstance(answer, list):
-        return [str(a).strip() for a in answer if str(a).strip()]
-    if isinstance(answer, str):
-        # Split on commas or newlines
-        parts = [p.strip() for p in answer.replace("\n", ",").split(",") if p.strip()]
-        return parts
-    return []
+        items = [_sanitize(str(a), max_len=200) for a in answer if str(a).strip()]
+    elif isinstance(answer, str):
+        items = [_sanitize(p, max_len=200) for p in answer.replace("\n", ",").split(",") if p.strip()]
+    else:
+        return []
+    return [i for i in items if i]  # drop any that sanitized to empty
 
 
 def _extract_delivery_schedule(answer: Any) -> str:
@@ -312,7 +320,7 @@ async def onboarding_card(
         existing_answers = existing_result.data[0].get("answers") or {}
 
     merged_answers = {**existing_answers, "card": payload.model_dump()}
-    supabase.table("onboarding_sessions").upsert(
+    session_result = supabase.table("onboarding_sessions").upsert(
         {
             "user_id": user_id,
             "step": 1,
@@ -321,6 +329,8 @@ async def onboarding_card(
         },
         on_conflict="user_id",
     ).execute()
+    if hasattr(session_result, "error") and session_result.error:
+        raise HTTPException(status_code=500, detail=f"Failed to save card step: {session_result.error}")
 
     return {"step": 1, "next": "chat"}
 
@@ -360,7 +370,7 @@ async def onboarding_chat(
     # Determine next step response
     next_step = step + 1
 
-    supabase.table("onboarding_sessions").upsert(
+    chat_result = supabase.table("onboarding_sessions").upsert(
         {
             "user_id": user_id,
             "step": next_step,
@@ -369,6 +379,8 @@ async def onboarding_chat(
         },
         on_conflict="user_id",
     ).execute()
+    if hasattr(chat_result, "error") and chat_result.error:
+        raise HTTPException(status_code=500, detail=f"Failed to save answer: {chat_result.error}")
     if next_step > 6:
         return {
             "step": step,
@@ -422,7 +434,8 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
     tracking_gap = _sanitize(answers.get("6", ""))
 
-    # Update users row with onboarding data
+    # Update users row with extracted fields — onboarding_complete NOT set yet
+    # (set only after agent configs are successfully written)
     supabase.table("users").update(
         {
             "deal_types": deal_types,
@@ -432,7 +445,6 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
             "relationship_flag": relationship_flag,
             "delivery_schedule": delivery_schedule,
             "tracking_gap": tracking_gap,
-            "onboarding_complete": True,
         }
     ).eq("id", user_id).execute()
 
@@ -453,6 +465,9 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
             status_code=500,
             detail=f"Failed to generate agent configs: {exc}",
         ) from exc
+
+    # Configs written successfully — now mark onboarding complete
+    supabase.table("users").update({"onboarding_complete": True}).eq("id", user_id).execute()
 
     try:
         supabase.table("onboarding_sessions").update(
