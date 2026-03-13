@@ -45,3 +45,21 @@ async def query(payload: QueryRequest, current_user=Depends(get_current_user)) -
         raise HTTPException(status_code=502, detail=f"Anthropic API error: {exc}")
 
     return {"response": response.content[0].text}
+
+@router.get("/debug")
+async def debug_query():
+    """Temporary debug endpoint - remove after debugging."""
+    import os
+    has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    key_prefix = os.environ.get("ANTHROPIC_API_KEY", "")[:10] if has_key else ""
+    
+    try:
+        client = anthropic.Anthropic()
+        resp = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "say hi"}]
+        )
+        return {"anthropic_ok": True, "has_key": has_key, "key_prefix": key_prefix}
+    except Exception as e:
+        return {"anthropic_ok": False, "error": str(e), "has_key": has_key, "key_prefix": key_prefix}
