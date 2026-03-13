@@ -63,3 +63,19 @@ async def debug_query():
         return {"anthropic_ok": True, "has_key": has_key, "key_prefix": key_prefix}
     except Exception as e:
         return {"anthropic_ok": False, "error": str(e), "has_key": has_key, "key_prefix": key_prefix}
+
+
+@router.get("/debug-auth")
+async def debug_auth(authorization: str = None) -> dict:
+    """Test auth validation - pass ?authorization=Bearer+<token>"""
+    from app.database import supabase as sb
+    if not authorization:
+        return {"error": "pass ?authorization=Bearer <token>"}
+    token = authorization.replace("Bearer ", "").strip()
+    try:
+        resp = sb.auth.get_user(token)
+        if resp.user:
+            return {"auth_ok": True, "user_id": str(resp.user.id), "email": resp.user.email}
+        return {"auth_ok": False, "user": None}
+    except Exception as e:
+        return {"auth_ok": False, "error": str(e), "error_type": type(e).__name__}
