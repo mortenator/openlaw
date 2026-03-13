@@ -149,11 +149,11 @@ You remember everything you are told. You forget nothing unless instructed."""
 
 def _build_user_md(user_row: dict, answers: dict) -> str:
     full_name = _sanitize(f"{user_row.get('first_name', '')} {user_row.get('last_name', '')}".strip(), max_len=200)
-    firm = user_row.get("firm", user_row.get("name", ""))
+    firm = user_row.get("firm") or ""
     practice_area = ", ".join(_sanitize(p, max_len=200) for p in (user_row.get("practice_area") or []))
     deal_types = ", ".join(_sanitize(d, max_len=200) for d in _extract_deal_types(answers))
     geography = _extract_geography(answers.get("2", ""))
-    delivery_email = user_row.get("delivery_email") or user_row.get("email", "")
+    delivery_email = _sanitize(user_row.get("delivery_email") or user_row.get("email", ""), max_len=200)
     delivery_schedule = _sanitize(_extract_delivery_schedule(answers.get("5", "")), max_len=200)
     watchlist = "\n".join(f"- {c}" for c in _extract_watchlist(answers.get("3", "")))
     tracking_gap = _sanitize(answers.get("6", ""))
@@ -205,7 +205,7 @@ def _build_heartbeat_md(user_row: dict, answers: dict) -> str:
     watchlist = ", ".join(_extract_watchlist(answers.get("3", "")))
     watchlist_display = watchlist if watchlist else "_(no companies specified)_"
     delivery_schedule = _sanitize(_extract_delivery_schedule(answers.get("5", "")), max_len=200)
-    delivery_email = user_row.get("delivery_email") or user_row.get("email", "")
+    delivery_email = _sanitize(user_row.get("delivery_email") or user_row.get("email", ""), max_len=200)
     relationship_flag = _sanitize(answers.get("4", ""))
 
     return f"""# HEARTBEAT.md
@@ -237,9 +237,11 @@ def _extract_deal_types(answers: dict) -> list[str]:
     return []
 
 
-def _sanitize(value: str, max_len: int = 500) -> str:
-    """Strip whitespace, collapse newlines, then truncate to max_len.
-    Order matters: replace before truncate so result never exceeds max_len."""
+def _sanitize(value: Any, max_len: int = 500) -> str:
+    """Coerce to str, strip whitespace, collapse newlines, then truncate to max_len.
+    Accepts lists (joins with comma) so free-text answers stored as lists don't silently drop."""
+    if isinstance(value, list):
+        value = ", ".join(str(v) for v in value)
     if not isinstance(value, str):
         return ""
     return value.strip().replace("\n", " · ").replace("\r", "")[:max_len]
@@ -252,7 +254,7 @@ def _extract_geography(answer: str) -> str:
 
 def _extract_watchlist(answer: Any) -> list[str]:
     if isinstance(answer, list):
-        items = [_sanitize(str(a), max_len=200) for a in answer if str(a).strip()]
+        items = [_sanitize(str(a), max_len=200) for a in answer if str(a).strip()]  # str() once, _sanitize handles the rest
     elif isinstance(answer, str):
         items = [_sanitize(p, max_len=200) for p in answer.replace("\n", ",").split(",") if p.strip()]
     else:
