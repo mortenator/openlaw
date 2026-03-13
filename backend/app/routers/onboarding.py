@@ -154,7 +154,7 @@ def _build_user_md(user_row: dict, answers: dict) -> str:
     deal_types = ", ".join(_sanitize(d, max_len=200) for d in _extract_deal_types(answers))
     geography = _extract_geography(answers.get("2", ""))
     delivery_email = user_row.get("delivery_email") or user_row.get("email", "")
-    delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
+    delivery_schedule = _sanitize(_extract_delivery_schedule(answers.get("5", "")), max_len=200)
     watchlist = "\n".join(f"- {c}" for c in _extract_watchlist(answers.get("3", "")))
     tracking_gap = _sanitize(answers.get("6", ""))
     watchlist_note = watchlist if watchlist else "_(no companies specified during setup)_"
@@ -204,7 +204,7 @@ _Initialized {today} via onboarding._
 def _build_heartbeat_md(user_row: dict, answers: dict) -> str:
     watchlist = ", ".join(_extract_watchlist(answers.get("3", "")))
     watchlist_display = watchlist if watchlist else "_(no companies specified)_"
-    delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
+    delivery_schedule = _sanitize(_extract_delivery_schedule(answers.get("5", "")), max_len=200)
     delivery_email = user_row.get("delivery_email") or user_row.get("email", "")
     relationship_flag = _sanitize(answers.get("4", ""))
 
@@ -238,10 +238,11 @@ def _extract_deal_types(answers: dict) -> list[str]:
 
 
 def _sanitize(value: str, max_len: int = 500) -> str:
-    """Strip whitespace, collapse newlines, and truncate to max_len."""
+    """Strip whitespace, collapse newlines, then truncate to max_len.
+    Order matters: replace before truncate so result never exceeds max_len."""
     if not isinstance(value, str):
         return ""
-    return value.strip()[:max_len].replace("\n", " · ").replace("\r", "")
+    return value.strip().replace("\n", " · ").replace("\r", "")[:max_len]
 
 
 def _extract_geography(answer: str) -> str:
@@ -433,7 +434,7 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     # Extract structured fields from answers
     deal_types = _extract_deal_types(answers)
     geography = _extract_geography(answers.get("2", ""))
-    client_types = answers.get("2", "")  # full free-text answer; geography extracts a sub-part
+    client_types = _sanitize(answers.get("2", ""), max_len=500)
     watchlist_companies = _extract_watchlist(answers.get("3", ""))
     relationship_flag = _sanitize(answers.get("4", ""))
     delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
@@ -478,15 +479,14 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     if hasattr(complete_update, "error") and complete_update.error:
         raise HTTPException(status_code=500, detail=f"Failed to mark onboarding complete: {complete_update.error}")
 
+    # Best-effort: stamp completed_at on the session. If this fails, onboarding_complete=True
+    # on the users table is still the source of truth — don't raise and don't undo the success.
     try:
         supabase.table("onboarding_sessions").update(
             {"completed_at": datetime.now(timezone.utc).isoformat()}
         ).eq("user_id", user_id).execute()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to finalise onboarding session: {exc}",
-        ) from exc
+    except Exception:
+        pass  # non-fatal — users.onboarding_complete is the authoritative flag
 
     return {"success": True, "redirect": "/dashboard"}
 
