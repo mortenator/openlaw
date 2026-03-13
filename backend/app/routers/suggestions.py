@@ -35,7 +35,7 @@ async def update_suggestion(
     payload: SuggestionUpdate,
     current_user=Depends(get_current_user),
 ) -> dict:
-    valid_statuses = {"pending", "dismissed", "sent"}
+    valid_statuses = {"pending", "approved", "dismissed", "sent"}
     if payload.status not in valid_statuses:
         raise HTTPException(
             status_code=400,

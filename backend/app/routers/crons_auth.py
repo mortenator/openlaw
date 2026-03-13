@@ -9,7 +9,7 @@ router = APIRouter(prefix="/crons", tags=["crons"])
 
 
 class CronToggle(BaseModel):
-    is_enabled: bool
+    is_active: bool
 
 
 @router.get("")
@@ -31,7 +31,7 @@ async def update_cron(
 ) -> dict:
     result = (
         supabase.table("user_crons")
-        .update({"is_enabled": payload.is_enabled})
+        .update({"is_active": payload.is_active})
         .eq("id", cron_id)
         .eq("user_id", current_user.id)
         .execute()

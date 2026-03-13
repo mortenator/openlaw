@@ -39,9 +39,21 @@ class LoginRequest(BaseModel):
     password: str
 
 
-def _provision_defaults(user_id: str) -> None:
+def _provision_defaults(user_id: str, email: str) -> None:
     try:
-        # Insert default agent config row (settings-style)
+        # 1. Create users row first (all other tables FK to this)
+        supabase.table("users").upsert(
+            {
+                "id": user_id,
+                "name": email.split("@")[0],
+                "email": email,
+                "practice_area": ["M&A", "tech transactions", "AI infrastructure"],
+                "comms_channel": "email",
+            },
+            on_conflict="id",
+        ).execute()
+
+        # 2. Default agent config row (settings-style)
         supabase.table("agent_configs").upsert(
             {
                 "user_id": user_id,
@@ -53,7 +65,7 @@ def _provision_defaults(user_id: str) -> None:
             on_conflict="user_id",
         ).execute()
 
-        # Store named markdown files in agent_memory_logs
+        # 3. Named markdown files in agent_memory_logs
         for name, content in _DEFAULT_CONFIGS:
             supabase.table("agent_memory_logs").upsert(
                 {"user_id": user_id, "memory_key": name, "memory_val": {"content": content}},
@@ -76,7 +88,7 @@ async def signup(payload: SignupRequest) -> dict:
     if user is None:
         raise HTTPException(status_code=400, detail="Failed to create user")
 
-    _provision_defaults(user.id)
+    _provision_defaults(user.id, payload.email)
 
     # Sign in to get access token
     try:
