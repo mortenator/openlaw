@@ -3,6 +3,12 @@
 -- with Paperclip's own 'companies' concept (tenant orgs).
 -- Also adds paperclip_company_id and paperclip_agent_id to users.
 --
+-- ⚠️  RLS POLICIES: If any RLS policies reference the 'companies' table on other
+-- tables, verify them manually after running this migration. Table rename in
+-- Postgres updates FK references but does NOT update policy names or USING/WITH CHECK
+-- clauses on sibling tables. Run: SELECT * FROM pg_policies WHERE tablename = 'companies';
+-- before applying to confirm there are none.
+--
 -- ⚠️  IRREVERSIBLE in normal flow. Manual rollback if needed:
 --   ALTER TABLE tracked_firms RENAME TO companies;
 --   ALTER INDEX idx_tracked_firms_user_id_created RENAME TO idx_companies_user_id_created;

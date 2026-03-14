@@ -32,14 +32,20 @@ async def bootstrap_user(
 
     company_name = f"{user_name} ({firm or 'Independent'})"
 
-    # POST /api/companies
-    company_resp = await client.post(
-        "/api/companies",
-        json={"name": company_name},
-    )
-    company_resp.raise_for_status()
-    paperclip_company_id: str = company_resp.json()["id"]
-    log.info("Created Paperclip company %s for user %s", paperclip_company_id, user_id)
+    # Reuse existing company if already created (handles half-bootstrapped retry)
+    existing_company_id: str | None = user.get("paperclip_company_id")
+    if existing_company_id:
+        paperclip_company_id = existing_company_id
+        log.info("Reusing existing Paperclip company %s for user %s", paperclip_company_id, user_id)
+    else:
+        # POST /api/companies
+        company_resp = await client.post(
+            "/api/companies",
+            json={"name": company_name},
+        )
+        company_resp.raise_for_status()
+        paperclip_company_id = company_resp.json()["id"]
+        log.info("Created Paperclip company %s for user %s", paperclip_company_id, user_id)
 
     # Persist company_id immediately so a retry won't create a duplicate company
     patch_company = (
@@ -90,8 +96,13 @@ async def bootstrap_user(
 
 
 async def main() -> None:
-    # Fetch all users without paperclip_company_id
-    result = supabase.table("users").select("id, name, firm").is_("paperclip_company_id", "null").execute()
+    # Fetch users missing either Paperclip ID — handles half-bootstrapped users on retry
+    result = (
+        supabase.table("users")
+        .select("id, name, firm, paperclip_company_id")
+        .or_("paperclip_company_id.is.null,paperclip_agent_id.is.null")
+        .execute()
+    )
     users: list[dict] = result.data or []
 
     if not users:

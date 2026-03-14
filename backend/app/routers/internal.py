@@ -58,11 +58,17 @@ async def heartbeat(
             .single()
             .execute()
         )
-    except APIError:
+    except APIError as exc:
+        # Distinguish "row not found" (PGRST116) from infrastructure failures
+        if getattr(exc, "code", None) == "PGRST116":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No user found for the provided agent_id",
+            )
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No user found for paperclip_agent_id={body.agent_id}",
-        )
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database error looking up agent",
+        ) from exc
 
     user = result.data
     user_id: str = user["id"]

@@ -66,7 +66,7 @@ async def update_company(
     payload: CompanyPayload,
     current_user=Depends(get_current_user),
 ) -> dict:
-    data = payload.model_dump(exclude_none=True)
+    data = payload.model_dump(exclude_unset=True)
     result = (
         supabase.table("tracked_firms")
         .update(data)
