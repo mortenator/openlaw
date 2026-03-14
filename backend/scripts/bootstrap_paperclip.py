@@ -41,6 +41,16 @@ async def bootstrap_user(
     paperclip_company_id: str = company_resp.json()["id"]
     log.info("Created Paperclip company %s for user %s", paperclip_company_id, user_id)
 
+    # Persist company_id immediately so a retry won't create a duplicate company
+    patch_company = (
+        supabase.table("users")
+        .update({"paperclip_company_id": paperclip_company_id})
+        .eq("id", user_id)
+        .execute()
+    )
+    if not patch_company.data:
+        raise RuntimeError(f"Failed to patch paperclip_company_id for user {user_id} in Supabase")
+
     # POST /api/companies/{id}/agents
     agent_resp = await client.post(
         f"/api/companies/{paperclip_company_id}/agents",
@@ -60,20 +70,15 @@ async def bootstrap_user(
     paperclip_agent_id: str = agent_resp.json()["id"]
     log.info("Created Paperclip agent %s for user %s", paperclip_agent_id, user_id)
 
-    # PATCH Supabase users row
-    patch_result = (
+    # PATCH Supabase users row with agent_id
+    patch_agent = (
         supabase.table("users")
-        .update(
-            {
-                "paperclip_company_id": paperclip_company_id,
-                "paperclip_agent_id": paperclip_agent_id,
-            }
-        )
+        .update({"paperclip_agent_id": paperclip_agent_id})
         .eq("id", user_id)
         .execute()
     )
-    if not patch_result.data:
-        raise RuntimeError(f"Failed to patch user {user_id} in Supabase")
+    if not patch_agent.data:
+        raise RuntimeError(f"Failed to patch paperclip_agent_id for user {user_id} in Supabase")
 
     return {
         "user_id": user_id,
@@ -86,7 +91,7 @@ async def bootstrap_user(
 
 async def main() -> None:
     # Fetch all users without paperclip_company_id
-    result = supabase.table("users").select("*").is_("paperclip_company_id", "null").execute()
+    result = supabase.table("users").select("id, name, firm").is_("paperclip_company_id", "null").execute()
     users: list[dict] = result.data or []
 
     if not users:

@@ -35,7 +35,7 @@ async def list_companies(
 async def create_company(
     payload: CompanyPayload, current_user=Depends(get_current_user)
 ) -> dict:
-    data = payload.model_dump(exclude={"is_watchlist"})  # excluded until migration 003 is applied
+    data = payload.model_dump(exclude={"is_watchlist"})  # is_watchlist managed via dedicated watchlist endpoints
     data["user_id"] = current_user.id
     result = supabase.table("tracked_firms").insert(data).execute()
     if not result.data:
@@ -66,7 +66,7 @@ async def update_company(
     payload: CompanyPayload,
     current_user=Depends(get_current_user),
 ) -> dict:
-    data = payload.model_dump(exclude_none=True, exclude={"is_watchlist"})  # excluded until migration 003 applied
+    data = payload.model_dump(exclude_none=True, exclude={"is_watchlist"})  # is_watchlist managed via dedicated watchlist endpoints
     result = (
         supabase.table("tracked_firms")
         .update(data)

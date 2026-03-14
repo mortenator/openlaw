@@ -1,8 +1,10 @@
 """Internal endpoints called by the Paperclip agent execution backend."""
 import logging
+import secrets
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, status
+from postgrest.exceptions import APIError
 from pydantic import BaseModel
 
 from app.config import settings
@@ -38,7 +40,7 @@ async def heartbeat(
     x_internal_key: str = Header(alias="X-Internal-Key"),
 ) -> HeartbeatResponse:
     """Receive a scheduled heartbeat from Paperclip and dispatch the appropriate job."""
-    if x_internal_key != settings.paperclip_internal_key:
+    if not secrets.compare_digest(x_internal_key, settings.paperclip_internal_key):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal key")
 
     job_type = body.context.job_type
@@ -49,14 +51,15 @@ async def heartbeat(
         )
 
     # Look up the user by their Paperclip agent ID
-    result = (
-        supabase.table("users")
-        .select("id, name, email")
-        .eq("paperclip_agent_id", body.agent_id)
-        .single()
-        .execute()
-    )
-    if not result.data:
+    try:
+        result = (
+            supabase.table("users")
+            .select("id, name, email")
+            .eq("paperclip_agent_id", body.agent_id)
+            .single()
+            .execute()
+        )
+    except APIError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No user found for paperclip_agent_id={body.agent_id}",
@@ -72,12 +75,12 @@ async def heartbeat(
         user_id,
         body.agent_id,
     )
-    _dispatch_job(job_type=job_type, user_id=user_id, payload=body.context.payload)
+    await _dispatch_job(job_type=job_type, user_id=user_id, payload=body.context.payload)
 
     return HeartbeatResponse(success=True, job_type=job_type, user_id=user_id)
 
 
-def _dispatch_job(job_type: str, user_id: str, payload: dict[str, Any]) -> None:
+async def _dispatch_job(job_type: str, user_id: str, payload: dict[str, Any]) -> None:
     """Stub dispatcher — replace with real job invocation in Phase 4."""
     log.info("Dispatching job '%s' for user %s (payload keys: %s)", job_type, user_id, list(payload.keys()))
     # TODO(phase4): wire to jobs.py handlers

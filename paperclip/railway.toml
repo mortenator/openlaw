@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "npx paperclipai@latest onboard --yes --headless"
+startCommand = "npx paperclipai@0.3.1 onboard --yes --headless"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
