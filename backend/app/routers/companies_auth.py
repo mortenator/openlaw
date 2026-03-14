@@ -24,7 +24,7 @@ async def list_companies(
     watchlist: Optional[bool] = Query(default=None),
     current_user=Depends(get_current_user),
 ) -> list[dict]:
-    query = supabase.table("companies").select("*").eq("user_id", current_user.id)
+    query = supabase.table("tracked_firms").select("*").eq("user_id", current_user.id)
     if watchlist is not None:
         query = query.eq("is_watchlist", watchlist)
     result = query.order("name").execute()
@@ -37,7 +37,7 @@ async def create_company(
 ) -> dict:
     data = payload.model_dump(exclude={"is_watchlist"})  # excluded until migration 003 is applied
     data["user_id"] = current_user.id
-    result = supabase.table("companies").insert(data).execute()
+    result = supabase.table("tracked_firms").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=400, detail="Failed to create company")
     return result.data[0]
@@ -48,7 +48,7 @@ async def get_company(
     company_id: str, current_user=Depends(get_current_user)
 ) -> dict:
     result = (
-        supabase.table("companies")
+        supabase.table("tracked_firms")
         .select("*")
         .eq("id", company_id)
         .eq("user_id", current_user.id)
@@ -68,7 +68,7 @@ async def update_company(
 ) -> dict:
     data = payload.model_dump(exclude_none=True, exclude={"is_watchlist"})  # excluded until migration 003 applied
     result = (
-        supabase.table("companies")
+        supabase.table("tracked_firms")
         .update(data)
         .eq("id", company_id)
         .eq("user_id", current_user.id)

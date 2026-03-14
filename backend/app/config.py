@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     brave_api_key: str
     anthropic_api_key: str
     cron_secret: str
+    paperclip_base_url: str = "http://localhost:3100"
+    paperclip_internal_key: str = "changeme"
 
     class Config:
         env_file = ".env"
