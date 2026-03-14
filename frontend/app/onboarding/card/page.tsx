@@ -66,7 +66,10 @@ export default function OnboardingCardPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8F7F5] px-6">
       {/* Heading — outside the card, left-aligned */}
       <div className="w-full max-w-xl mb-5">
-        <h1 className="text-2xl text-gray-800" style={{ fontFamily: 'var(--font-instrument-serif)' }}>
+        <h1
+          className="text-2xl bg-gradient-to-r from-[#A8C8E8] to-[#4A5568] bg-clip-text text-transparent"
+          style={{ fontFamily: 'var(--font-instrument-serif)' }}
+        >
           Welcome to OpenLaw
         </h1>
       </div>
