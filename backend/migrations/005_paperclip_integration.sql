@@ -2,6 +2,14 @@
 -- Renames 'companies' (BD target firms) to 'tracked_firms' to avoid collision
 -- with Paperclip's own 'companies' concept (tenant orgs).
 -- Also adds paperclip_company_id and paperclip_agent_id to users.
+--
+-- ⚠️  IRREVERSIBLE in normal flow. Manual rollback if needed:
+--   ALTER TABLE tracked_firms RENAME TO companies;
+--   ALTER INDEX idx_tracked_firms_user_id_created RENAME TO idx_companies_user_id_created;
+--   ALTER INDEX idx_tracked_firms_domain RENAME TO idx_companies_domain;
+--   ALTER INDEX idx_tracked_firms_watchlist RENAME TO idx_companies_watchlist;
+--   ALTER TABLE users DROP COLUMN IF EXISTS paperclip_company_id;
+--   ALTER TABLE users DROP COLUMN IF EXISTS paperclip_agent_id;
 
 -- ── 1. Rename companies → tracked_firms ────────────────────────────────────
 

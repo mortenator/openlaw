@@ -24,7 +24,6 @@ class HeartbeatContext(BaseModel):
 
 class HeartbeatRequest(BaseModel):
     agent_id: str
-    company_id: str
     context: HeartbeatContext
 
 
