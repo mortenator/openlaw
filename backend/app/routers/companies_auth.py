@@ -60,13 +60,15 @@ async def get_company(
     return result.data
 
 
+@router.put("/{company_id}")
 @router.patch("/{company_id}")
 async def update_company(
     company_id: str,
     payload: CompanyPayload,
     current_user=Depends(get_current_user),
 ) -> dict:
-    """Partial update — only fields present in the request body are written."""
+    """Partial update — only fields present in the request body are written.
+    Accepts both PUT and PATCH; PUT callers should migrate to PATCH over time."""
     data = payload.model_dump(exclude_unset=True)
     result = (
         supabase.table("tracked_firms")

@@ -26,11 +26,14 @@ DO $$
 DECLARE
     policy_count INT;
 BEGIN
+    -- 'tablename = companies' catches policies ON the table.
+    -- The regex catches USING/WITH CHECK clauses that reference the table by name
+    -- using a word-boundary pattern to avoid false positives on substrings.
     SELECT COUNT(*) INTO policy_count
     FROM pg_policies
     WHERE tablename = 'companies'
-       OR qual::text LIKE '%companies%'
-       OR with_check::text LIKE '%companies%';
+       OR qual::text ~ '\mcompanies\M'
+       OR with_check::text ~ '\mcompanies\M';
 
     IF policy_count > 0 THEN
         RAISE EXCEPTION
