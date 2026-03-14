@@ -128,22 +128,23 @@ async def main() -> None:
     summaries: list[dict] = []
     errors: list[dict] = []
 
-    # Paperclip auth:
-    # - local_trusted mode: no Authorization header needed (all requests get admin access).
-    # - authenticated mode: set PAPERCLIP_API_KEY env var and add "Authorization": "Bearer ..."
-    if not settings.paperclip_base_url.startswith("http://localhost") and \
-            not settings.paperclip_base_url.startswith("http://127."):
-        paperclip_api_key = os.getenv("PAPERCLIP_API_KEY")
-        if not paperclip_api_key:
-            log.warning(
-                "PAPERCLIP_BASE_URL is non-local (%s) but PAPERCLIP_API_KEY is not set. "
-                "Requests will fail with 401 if Paperclip is in 'authenticated' mode.",
-                settings.paperclip_base_url,
-            )
+    paperclip_api_key = os.getenv("PAPERCLIP_API_KEY")
+    headers = {"Content-Type": "application/json"}
+    if paperclip_api_key:
+        headers["Authorization"] = f"Bearer {paperclip_api_key}"
+    elif (
+        not settings.paperclip_base_url.startswith("http://localhost")
+        and not settings.paperclip_base_url.startswith("http://127.")
+    ):
+        log.warning(
+            "PAPERCLIP_BASE_URL is non-local (%s) but PAPERCLIP_API_KEY is not set. "
+            "Requests may fail if Paperclip is in 'authenticated' mode.",
+            settings.paperclip_base_url,
+        )
 
     async with httpx.AsyncClient(
         base_url=settings.paperclip_base_url,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         timeout=30.0,
     ) as client:
         for user in users:

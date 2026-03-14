@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     @field_validator("paperclip_internal_key")
     @classmethod
     def _key_not_empty(cls, v: str) -> str:
-        if not v:
-            raise ValueError("PAPERCLIP_INTERNAL_KEY must not be empty")
+        if len(v) < 32:
+            raise ValueError("PAPERCLIP_INTERNAL_KEY must be at least 32 characters for security")
         return v
 
     class Config:
