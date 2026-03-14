@@ -21,7 +21,7 @@ Attach a Railway Postgres plugin (or an external Postgres instance) to the servi
 | Variable | Description | Example |
 |---|---|---|
 | `DATABASE_URL` | Railway Postgres connection string | `postgresql://user:pass@host:5432/db` |
-| `PAPERCLIP_JWT_SECRET` | Random secret for signing JWTs — generate with `openssl rand -base64 48` | `abc123...` |
+| `PAPERCLIP_JWT_SECRET` | Random secret for signing JWTs — generate with `openssl rand -base64 48` | `<output of openssl rand -base64 48>` |
 | `PAPERCLIP_INSTANCE_NAME` | Human-readable name for this deployment | `openlaw` |
 
 ### 4. Deploy

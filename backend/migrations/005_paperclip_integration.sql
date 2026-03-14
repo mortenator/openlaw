@@ -19,6 +19,28 @@
 
 BEGIN;
 
+-- ── 0. Assert no RLS policies reference 'companies' ────────────────────────
+-- Abort immediately if any policy would break silently after the rename.
+
+DO $$
+DECLARE
+    policy_count INT;
+BEGIN
+    SELECT COUNT(*) INTO policy_count
+    FROM pg_policies
+    WHERE tablename = 'companies'
+       OR qual::text LIKE '%companies%'
+       OR with_check::text LIKE '%companies%';
+
+    IF policy_count > 0 THEN
+        RAISE EXCEPTION
+            'Migration aborted: % RLS policy(ies) reference "companies". '
+            'Update or drop them before running this migration.',
+            policy_count;
+    END IF;
+END;
+$$;
+
 -- ── 1. Rename companies → tracked_firms ────────────────────────────────────
 
 DO $$
@@ -51,6 +73,9 @@ END;
 $$;
 
 -- ── 3. Rename updated_at trigger ────────────────────────────────────────────
+-- NOTE: The ALTER TABLE in step 1 updates pg_catalog so the trigger is now
+-- visible under event_object_table = 'tracked_firms' even though it was
+-- originally created on 'companies'. This ordering dependency is intentional.
 
 DO $$
 BEGIN
