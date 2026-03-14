@@ -66,9 +66,8 @@ export default function OnboardingCardPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8F7F5] px-6">
       {/* Heading — outside the card, left-aligned */}
       <div className="w-full max-w-xl mb-5">
-        <h1 className="text-2xl font-light text-gray-800">
-          Welcome to{' '}
-          <span className="font-normal text-[#1B3A5C]">OpenLaw</span>
+        <h1 className="text-2xl text-gray-800" style={{ fontFamily: 'var(--font-instrument-serif)' }}>
+          Welcome to OpenLaw
         </h1>
       </div>
 
@@ -91,10 +90,10 @@ export default function OnboardingCardPage() {
             onChange={(e) => setFirm(e.target.value)}
             placeholder="Sullivan & Cromwell"
             aria-label="Firm"
-            className="bg-transparent text-sm font-medium text-gray-700 placeholder-gray-400 focus:outline-none border-b border-transparent hover:border-gray-300 focus:border-gray-400 transition-colors pb-px max-w-[200px]"
+            className="bg-transparent text-sm font-medium text-gray-700 placeholder-gray-400 focus:outline-none border-b border-gray-300 hover:border-gray-400 focus:border-gray-600 transition-colors pb-px max-w-[220px]"
           />
-          <span className="text-xs text-gray-400 tracking-wide select-none">
-            ⚡ OpenLaw
+          <span className="text-sm text-gray-400 select-none" style={{ fontFamily: 'var(--font-instrument-serif)' }}>
+            OpenLaw
           </span>
         </div>
 
@@ -111,7 +110,7 @@ export default function OnboardingCardPage() {
               onChange={(e) => setRole(e.target.value)}
               placeholder="Partner, M&A"
               aria-label="Role"
-              className="bg-transparent text-xs text-gray-500 placeholder-gray-400 focus:outline-none w-full"
+              className="bg-transparent text-xs text-gray-500 placeholder-gray-400 focus:outline-none border-b border-gray-300 hover:border-gray-400 focus:border-gray-600 transition-colors pb-px w-full max-w-[180px]"
             />
           </div>
           {/* First / Last name side by side */}
@@ -122,7 +121,7 @@ export default function OnboardingCardPage() {
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="First"
               aria-label="First name"
-              className="w-1/2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C]/30"
+              className="w-1/2 bg-white/30 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white/50 transition-colors"
             />
             <input
               type="text"
@@ -130,7 +129,7 @@ export default function OnboardingCardPage() {
               onChange={(e) => setLastName(e.target.value)}
               placeholder="Last"
               aria-label="Last name"
-              className="w-1/2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C]/30"
+              className="w-1/2 bg-white/30 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white/50 transition-colors"
             />
           </div>
         </div>
