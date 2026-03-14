@@ -2,6 +2,7 @@
 import logging
 import secrets
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, status
 from postgrest.exceptions import APIError
@@ -23,7 +24,7 @@ class HeartbeatContext(BaseModel):
 
 
 class HeartbeatRequest(BaseModel):
-    agent_id: str
+    agent_id: UUID  # Validated at request boundary — prevents Postgres cast errors
     context: HeartbeatContext
 
 
@@ -54,7 +55,7 @@ async def heartbeat(
         result = (
             supabase.table("users")
             .select("id")
-            .eq("paperclip_agent_id", body.agent_id)
+            .eq("paperclip_agent_id", str(body.agent_id))
             .single()
             .execute()
         )
@@ -75,10 +76,10 @@ async def heartbeat(
 
     # Stub dispatch — jobs.py will be wired here in a later phase
     log.info(
-        "Heartbeat received: job_type=%s user_id=%s agent_id=%s",
+        "Heartbeat received: job_type=%s user_id=%s agent_id=%.8s…",
         job_type,
         user_id,
-        body.agent_id,
+        str(body.agent_id),  # truncated — avoid logging full UUID in plaintext
     )
     await _dispatch_job(job_type=job_type, user_id=user_id, payload=body.context.payload)
 

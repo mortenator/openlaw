@@ -11,10 +11,21 @@ router = APIRouter(prefix="/companies", tags=["companies"])
 
 
 class CompanyPayload(BaseModel):
+    """Full-replacement payload for PUT. All fields with defaults are optional on the wire."""
     name: str
     industry: Optional[str] = None
     tags: list[str] = []
     is_watchlist: bool = False
+    domain: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class CompanyPatchPayload(BaseModel):
+    """Partial-update payload for PATCH. Every field is optional."""
+    name: Optional[str] = None
+    industry: Optional[str] = None
+    tags: Optional[list[str]] = None
+    is_watchlist: Optional[bool] = None
     domain: Optional[str] = None
     notes: Optional[str] = None
 
@@ -83,7 +94,7 @@ async def replace_company(
 @router.patch("/{company_id}")
 async def update_company(
     company_id: str,
-    payload: CompanyPayload,
+    payload: CompanyPatchPayload,
     current_user=Depends(get_current_user),
 ) -> dict:
     """Partial update — only fields present in the request body are written (PATCH semantics)."""
