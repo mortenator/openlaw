@@ -3,19 +3,21 @@
 -- with Paperclip's own 'companies' concept (tenant orgs).
 -- Also adds paperclip_company_id and paperclip_agent_id to users.
 --
--- ⚠️  RLS POLICIES: If any RLS policies reference the 'companies' table on other
--- tables, verify them manually after running this migration. Table rename in
--- Postgres updates FK references but does NOT update policy names or USING/WITH CHECK
--- clauses on sibling tables. Run: SELECT * FROM pg_policies WHERE tablename = 'companies';
--- before applying to confirm there are none.
+-- ⚠️  RLS POLICIES: Verify no RLS policies reference 'companies' before running:
+--   SELECT * FROM pg_policies WHERE tablename = 'companies';
+--   SELECT * FROM pg_policies WHERE qual LIKE '%companies%' OR with_check LIKE '%companies%';
 --
--- ⚠️  IRREVERSIBLE in normal flow. Manual rollback if needed:
+-- ⚠️  MANUAL ROLLBACK (if needed — run each statement individually):
 --   ALTER TABLE tracked_firms RENAME TO companies;
---   ALTER INDEX idx_tracked_firms_user_id_created RENAME TO idx_companies_user_id_created;
---   ALTER INDEX idx_tracked_firms_domain RENAME TO idx_companies_domain;
---   ALTER INDEX idx_tracked_firms_watchlist RENAME TO idx_companies_watchlist;
+--   ALTER INDEX IF EXISTS idx_tracked_firms_user_id_created RENAME TO idx_companies_user_id_created;
+--   ALTER INDEX IF EXISTS idx_tracked_firms_domain RENAME TO idx_companies_domain;
+--   ALTER INDEX IF EXISTS idx_tracked_firms_watchlist RENAME TO idx_companies_watchlist;
+--   ALTER TABLE contacts RENAME CONSTRAINT contacts_tracked_firm_id_fkey TO contacts_company_id_fkey;
+--   ALTER TABLE signals RENAME CONSTRAINT signals_tracked_firm_id_fkey TO signals_company_id_fkey;
 --   ALTER TABLE users DROP COLUMN IF EXISTS paperclip_company_id;
 --   ALTER TABLE users DROP COLUMN IF EXISTS paperclip_agent_id;
+
+BEGIN;
 
 -- ── 1. Rename companies → tracked_firms ────────────────────────────────────
 
@@ -30,7 +32,8 @@ BEGIN
 END;
 $$;
 
--- Rename primary indexes (safe: IF EXISTS via DO block)
+-- ── 2. Rename indexes ───────────────────────────────────────────────────────
+
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_companies_user_id_created') THEN
@@ -47,7 +50,8 @@ BEGIN
 END;
 $$;
 
--- Rename the updated_at trigger on the renamed table
+-- ── 3. Rename updated_at trigger ────────────────────────────────────────────
+
 DO $$
 BEGIN
     IF EXISTS (
@@ -61,10 +65,7 @@ BEGIN
 END;
 $$;
 
--- ── 2. Update contacts FK to point at tracked_firms ─────────────────────────
--- PostgreSQL automatically follows the table rename for existing FKs,
--- but the constraint may still be named 'contacts_company_id_fkey'.
--- Rename it for clarity.
+-- ── 4. Rename FK constraints ────────────────────────────────────────────────
 
 DO $$
 BEGIN
@@ -80,8 +81,6 @@ BEGIN
 END;
 $$;
 
--- ── 3. Update signals FK constraint name (if it references companies) ───────
-
 DO $$
 BEGIN
     IF EXISTS (
@@ -96,7 +95,7 @@ BEGIN
 END;
 $$;
 
--- ── 4. Add Paperclip columns to users ───────────────────────────────────────
+-- ── 5. Add Paperclip columns to users ───────────────────────────────────────
 
 ALTER TABLE users
     ADD COLUMN IF NOT EXISTS paperclip_company_id UUID,
@@ -108,10 +107,7 @@ CREATE INDEX IF NOT EXISTS idx_users_paperclip_company_id
 CREATE INDEX IF NOT EXISTS idx_users_paperclip_agent_id
     ON users(paperclip_agent_id);
 
--- ── 5. Re-register auto-update trigger for tracked_firms ────────────────────
--- The trigger function already exists (from migration 001).
--- Create the trigger on tracked_firms if it doesn't already exist
--- (handles case where rename above moved the trigger).
+-- ── 6. Ensure tracked_firms has an updated_at trigger ───────────────────────
 
 DO $$
 BEGIN
@@ -128,3 +124,5 @@ BEGIN
     END IF;
 END;
 $$;
+
+COMMIT;

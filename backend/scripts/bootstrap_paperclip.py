@@ -20,6 +20,10 @@ from app.database import supabase
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
+# Monthly token budget per agent in cents ($50 = 5000 cents).
+# Adjust before running if a different default is needed.
+DEFAULT_BUDGET_MONTHLY_CENTS = 5000
+
 
 async def bootstrap_user(
     client: httpx.AsyncClient,
@@ -49,15 +53,17 @@ async def bootstrap_user(
         paperclip_company_id = company_resp.json()["id"]
         log.info("Created Paperclip company %s for user %s", paperclip_company_id, user_id)
 
-    # Persist company_id immediately so a retry won't create a duplicate company
-    patch_company = (
-        supabase.table("users")
-        .update({"paperclip_company_id": paperclip_company_id})
-        .eq("id", user_id)
-        .execute()
-    )
-    if not patch_company.data:
-        raise RuntimeError(f"Failed to patch paperclip_company_id for user {user_id} in Supabase")
+    # Persist company_id immediately (only when freshly created) so a crash before agent
+    # creation doesn't leave the user company-less on retry.
+    if not existing_company_id:
+        patch_company = (
+            supabase.table("users")
+            .update({"paperclip_company_id": paperclip_company_id})
+            .eq("id", user_id)
+            .execute()
+        )
+        if not patch_company.data:
+            raise RuntimeError(f"Failed to patch paperclip_company_id for user {user_id} in Supabase")
 
     if existing_agent_id:
         paperclip_agent_id = existing_agent_id
@@ -75,7 +81,7 @@ async def bootstrap_user(
                         "intervalSec": 0,
                     }
                 },
-                "budgetMonthlyCents": 5000,
+                "budgetMonthlyCents": DEFAULT_BUDGET_MONTHLY_CENTS,
             },
         )
         agent_resp.raise_for_status()
