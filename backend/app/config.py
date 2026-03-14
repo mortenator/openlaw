@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -8,6 +9,15 @@ class Settings(BaseSettings):
     brave_api_key: str
     anthropic_api_key: str
     cron_secret: str
+    paperclip_base_url: str = "http://localhost:3100"
+    paperclip_internal_key: str  # Required — empty string rejected at startup
+
+    @field_validator("paperclip_internal_key")
+    @classmethod
+    def _key_not_empty(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError("PAPERCLIP_INTERNAL_KEY must be at least 32 characters for security")
+        return v
 
     class Config:
         env_file = ".env"

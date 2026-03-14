@@ -11,10 +11,21 @@ router = APIRouter(prefix="/companies", tags=["companies"])
 
 
 class CompanyPayload(BaseModel):
+    """Full-replacement payload for PUT. All fields with defaults are optional on the wire."""
     name: str
     industry: Optional[str] = None
     tags: list[str] = []
     is_watchlist: bool = False
+    domain: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class CompanyPatchPayload(BaseModel):
+    """Partial-update payload for PATCH. Every field is optional."""
+    name: Optional[str] = None
+    industry: Optional[str] = None
+    tags: Optional[list[str]] = None
+    is_watchlist: Optional[bool] = None
     domain: Optional[str] = None
     notes: Optional[str] = None
 
@@ -24,7 +35,7 @@ async def list_companies(
     watchlist: Optional[bool] = Query(default=None),
     current_user=Depends(get_current_user),
 ) -> list[dict]:
-    query = supabase.table("companies").select("*").eq("user_id", current_user.id)
+    query = supabase.table("tracked_firms").select("*").eq("user_id", current_user.id)
     if watchlist is not None:
         query = query.eq("is_watchlist", watchlist)
     result = query.order("name").execute()
@@ -35,9 +46,9 @@ async def list_companies(
 async def create_company(
     payload: CompanyPayload, current_user=Depends(get_current_user)
 ) -> dict:
-    data = payload.model_dump(exclude={"is_watchlist"})  # excluded until migration 003 is applied
+    data = payload.model_dump()
     data["user_id"] = current_user.id
-    result = supabase.table("companies").insert(data).execute()
+    result = supabase.table("tracked_firms").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=400, detail="Failed to create company")
     return result.data[0]
@@ -48,7 +59,7 @@ async def get_company(
     company_id: str, current_user=Depends(get_current_user)
 ) -> dict:
     result = (
-        supabase.table("companies")
+        supabase.table("tracked_firms")
         .select("*")
         .eq("id", company_id)
         .eq("user_id", current_user.id)
@@ -61,14 +72,35 @@ async def get_company(
 
 
 @router.put("/{company_id}")
-async def update_company(
+async def replace_company(
     company_id: str,
     payload: CompanyPayload,
     current_user=Depends(get_current_user),
 ) -> dict:
-    data = payload.model_dump(exclude_none=True, exclude={"is_watchlist"})  # excluded until migration 003 applied
+    """Full replacement — all fields in CompanyPayload are written (PUT semantics)."""
+    data = payload.model_dump()
     result = (
-        supabase.table("companies")
+        supabase.table("tracked_firms")
+        .update(data)
+        .eq("id", company_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return result.data[0]
+
+
+@router.patch("/{company_id}")
+async def update_company(
+    company_id: str,
+    payload: CompanyPatchPayload,
+    current_user=Depends(get_current_user),
+) -> dict:
+    """Partial update — only fields present in the request body are written (PATCH semantics)."""
+    data = payload.model_dump(exclude_unset=True)
+    result = (
+        supabase.table("tracked_firms")
         .update(data)
         .eq("id", company_id)
         .eq("user_id", current_user.id)

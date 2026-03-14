@@ -12,7 +12,7 @@ router = APIRouter(tags=["companies"])
 async def create_company(user_id: uuid.UUID, payload: CompanyCreate) -> CompanyOut:
     data = payload.model_dump()
     data["user_id"] = str(user_id)
-    result = supabase.table("companies").insert(data).execute()
+    result = supabase.table("tracked_firms").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=400, detail="Failed to create company")
     return CompanyOut(**result.data[0])
@@ -25,7 +25,7 @@ async def list_companies(
     offset: int = Query(default=0),
 ) -> list[CompanyOut]:
     result = (
-        supabase.table("companies")
+        supabase.table("tracked_firms")
         .select("*")
         .eq("user_id", str(user_id))
         .order("name")
