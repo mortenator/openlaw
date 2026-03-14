@@ -53,7 +53,7 @@ async def heartbeat(
     try:
         result = (
             supabase.table("users")
-            .select("id, name, email")
+            .select("id")
             .eq("paperclip_agent_id", body.agent_id)
             .single()
             .execute()
@@ -70,6 +70,11 @@ async def heartbeat(
             detail="Database error looking up agent",
         ) from exc
 
+    if not result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No user found for the provided agent_id",
+        )
     user = result.data
     user_id: str = user["id"]
 

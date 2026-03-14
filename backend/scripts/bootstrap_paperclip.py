@@ -120,12 +120,14 @@ async def main() -> None:
     summaries: list[dict] = []
     errors: list[dict] = []
 
+    # Paperclip uses Bearer token auth (agent_api_keys or session) in 'authenticated' mode.
+    # In 'local_trusted' mode (recommended for Railway internal deployment), all requests
+    # are auto-granted admin access — no Authorization header needed.
+    # If deploying in 'authenticated' mode, set PAPERCLIP_API_KEY and pass it here as:
+    #   "Authorization": f"Bearer {settings.paperclip_api_key}"
     async with httpx.AsyncClient(
         base_url=settings.paperclip_base_url,
-        headers={
-            "X-Internal-Key": settings.paperclip_internal_key,
-            "Content-Type": "application/json",
-        },
+        headers={"Content-Type": "application/json"},
         timeout=30.0,
     ) as client:
         for user in users:
