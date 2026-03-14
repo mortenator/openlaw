@@ -29,7 +29,7 @@ Attach a Railway Postgres plugin (or an external Postgres instance) to the servi
 Trigger a deploy. Railway will run:
 
 ```
-npx paperclipai@latest onboard --yes --headless
+npx paperclipai@0.3.1 onboard --yes --headless
 ```
 
 The service listens on port **3100** and exposes a `/health` endpoint.

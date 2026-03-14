@@ -32,8 +32,10 @@ async def bootstrap_user(
 
     company_name = f"{user_name} ({firm or 'Independent'})"
 
-    # Reuse existing company if already created (handles half-bootstrapped retry)
+    # Reuse existing company/agent IDs if already created (handles half-bootstrapped retry)
     existing_company_id: str | None = user.get("paperclip_company_id")
+    existing_agent_id: str | None = user.get("paperclip_agent_id")
+
     if existing_company_id:
         paperclip_company_id = existing_company_id
         log.info("Reusing existing Paperclip company %s for user %s", paperclip_company_id, user_id)
@@ -57,24 +59,28 @@ async def bootstrap_user(
     if not patch_company.data:
         raise RuntimeError(f"Failed to patch paperclip_company_id for user {user_id} in Supabase")
 
-    # POST /api/companies/{id}/agents
-    agent_resp = await client.post(
-        f"/api/companies/{paperclip_company_id}/agents",
-        json={
-            "name": "OpenLaw Agent",
-            "adapterType": "process",
-            "runtimeConfig": {
-                "heartbeat": {
-                    "enabled": False,
-                    "intervalSec": 0,
-                }
+    if existing_agent_id:
+        paperclip_agent_id = existing_agent_id
+        log.info("Reusing existing Paperclip agent %s for user %s", paperclip_agent_id, user_id)
+    else:
+        # POST /api/companies/{id}/agents
+        agent_resp = await client.post(
+            f"/api/companies/{paperclip_company_id}/agents",
+            json={
+                "name": "OpenLaw Agent",
+                "adapterType": "process",
+                "runtimeConfig": {
+                    "heartbeat": {
+                        "enabled": False,
+                        "intervalSec": 0,
+                    }
+                },
+                "budgetMonthlyCents": 5000,
             },
-            "budgetMonthlyCents": 5000,
-        },
-    )
-    agent_resp.raise_for_status()
-    paperclip_agent_id: str = agent_resp.json()["id"]
-    log.info("Created Paperclip agent %s for user %s", paperclip_agent_id, user_id)
+        )
+        agent_resp.raise_for_status()
+        paperclip_agent_id = agent_resp.json()["id"]
+        log.info("Created Paperclip agent %s for user %s", paperclip_agent_id, user_id)
 
     # PATCH Supabase users row with agent_id
     patch_agent = (
@@ -99,7 +105,7 @@ async def main() -> None:
     # Fetch users missing either Paperclip ID — handles half-bootstrapped users on retry
     result = (
         supabase.table("users")
-        .select("id, name, firm, paperclip_company_id")
+        .select("id, name, firm, paperclip_company_id, paperclip_agent_id")
         .or_("paperclip_company_id.is.null,paperclip_agent_id.is.null")
         .execute()
     )

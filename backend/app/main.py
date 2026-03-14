@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
+
+# Fail fast on misconfiguration — before any request is served
+if not settings.paperclip_internal_key:
+    raise RuntimeError("PAPERCLIP_INTERNAL_KEY must not be empty")
+
 from app.routers import (
     companies,
     contacts,
