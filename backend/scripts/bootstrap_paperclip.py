@@ -7,6 +7,7 @@ Usage:
 
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -20,9 +21,9 @@ from app.database import supabase
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-# Monthly token budget per agent in cents ($50 = 5000 cents).
-# Adjust before running if a different default is needed.
-DEFAULT_BUDGET_MONTHLY_CENTS = 5000
+# Monthly token budget per agent in cents. Override via PAPERCLIP_DEFAULT_BUDGET_CENTS env var.
+# Default: 5000 cents = $50/month.
+DEFAULT_BUDGET_MONTHLY_CENTS = int(os.getenv("PAPERCLIP_DEFAULT_BUDGET_CENTS", "5000"))
 
 
 async def bootstrap_user(
@@ -127,11 +128,19 @@ async def main() -> None:
     summaries: list[dict] = []
     errors: list[dict] = []
 
-    # Paperclip uses Bearer token auth (agent_api_keys or session) in 'authenticated' mode.
-    # In 'local_trusted' mode (recommended for Railway internal deployment), all requests
-    # are auto-granted admin access — no Authorization header needed.
-    # If deploying in 'authenticated' mode, set PAPERCLIP_API_KEY and pass it here as:
-    #   "Authorization": f"Bearer {settings.paperclip_api_key}"
+    # Paperclip auth:
+    # - local_trusted mode: no Authorization header needed (all requests get admin access).
+    # - authenticated mode: set PAPERCLIP_API_KEY env var and add "Authorization": "Bearer ..."
+    if not settings.paperclip_base_url.startswith("http://localhost") and \
+            not settings.paperclip_base_url.startswith("http://127."):
+        paperclip_api_key = os.getenv("PAPERCLIP_API_KEY")
+        if not paperclip_api_key:
+            log.warning(
+                "PAPERCLIP_BASE_URL is non-local (%s) but PAPERCLIP_API_KEY is not set. "
+                "Requests will fail with 401 if Paperclip is in 'authenticated' mode.",
+                settings.paperclip_base_url,
+            )
+
     async with httpx.AsyncClient(
         base_url=settings.paperclip_base_url,
         headers={"Content-Type": "application/json"},
