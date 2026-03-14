@@ -88,15 +88,16 @@ async def bootstrap_user(
         paperclip_agent_id = agent_resp.json()["id"]
         log.info("Created Paperclip agent %s for user %s", paperclip_agent_id, user_id)
 
-    # PATCH Supabase users row with agent_id
-    patch_agent = (
-        supabase.table("users")
-        .update({"paperclip_agent_id": paperclip_agent_id})
-        .eq("id", user_id)
-        .execute()
-    )
-    if not patch_agent.data:
-        raise RuntimeError(f"Failed to patch paperclip_agent_id for user {user_id} in Supabase")
+    # Persist agent_id only when freshly created
+    if not existing_agent_id:
+        patch_agent = (
+            supabase.table("users")
+            .update({"paperclip_agent_id": paperclip_agent_id})
+            .eq("id", user_id)
+            .execute()
+        )
+        if not patch_agent.data:
+            raise RuntimeError(f"Failed to patch paperclip_agent_id for user {user_id} in Supabase")
 
     return {
         "user_id": user_id,

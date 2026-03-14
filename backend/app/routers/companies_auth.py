@@ -61,14 +61,32 @@ async def get_company(
 
 
 @router.put("/{company_id}")
+async def replace_company(
+    company_id: str,
+    payload: CompanyPayload,
+    current_user=Depends(get_current_user),
+) -> dict:
+    """Full replacement — all fields in CompanyPayload are written (PUT semantics)."""
+    data = payload.model_dump()
+    result = (
+        supabase.table("tracked_firms")
+        .update(data)
+        .eq("id", company_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return result.data[0]
+
+
 @router.patch("/{company_id}")
 async def update_company(
     company_id: str,
     payload: CompanyPayload,
     current_user=Depends(get_current_user),
 ) -> dict:
-    """Partial update — only fields present in the request body are written.
-    Accepts both PUT and PATCH; PUT callers should migrate to PATCH over time."""
+    """Partial update — only fields present in the request body are written (PATCH semantics)."""
     data = payload.model_dump(exclude_unset=True)
     result = (
         supabase.table("tracked_firms")
