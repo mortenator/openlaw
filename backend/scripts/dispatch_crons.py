@@ -20,13 +20,22 @@ def main() -> None:
     supabase = create_client(supabase_url, service_role_key)
     now = datetime.now(timezone.utc)
 
-    rows = (
+    # Fire jobs where next_run_at is due OR null (new rows that have never run)
+    due_rows = (
         supabase.table("user_crons")
         .select("id, job_type, user_id, cron_expression, last_run_at")
         .eq("is_active", True)
         .lte("next_run_at", now.isoformat())
         .execute()
     ).data or []
+    null_rows = (
+        supabase.table("user_crons")
+        .select("id, job_type, user_id, cron_expression, last_run_at")
+        .eq("is_active", True)
+        .is_("next_run_at", "null")
+        .execute()
+    ).data or []
+    rows = {r["id"]: r for r in due_rows + null_rows}.values()  # deduplicate by id
 
     log.info("Found %d due cron jobs", len(rows))
 

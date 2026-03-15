@@ -25,7 +25,7 @@ async def generate_outreach_suggestions(
         return 0
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.AsyncAnthropic(api_key=api_key)
     created = 0
 
     for contact in contacts:
@@ -57,18 +57,17 @@ async def generate_outreach_suggestions(
         )
 
         try:
-            response = client.messages.create(
+            import json, re
+            response = await client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=512,
                 messages=[{"role": "user", "content": prompt}],
             )
-            import json
             text = response.content[0].text
-            # Strip markdown code fences if present
-            if "```" in text:
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
+            # Strip markdown code fences robustly
+            fence_match = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+            if fence_match:
+                text = fence_match.group(1)
             parsed = json.loads(text.strip())
         except Exception:
             continue
