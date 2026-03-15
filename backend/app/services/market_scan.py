@@ -64,7 +64,7 @@ async def scan_market_for_user(
     supabase_admin,
     anthropic_api_key: str = None,
     keywords: list[str] = None,
-    **kwargs,
+    **_kwargs,
 ) -> dict:
     if not anthropic_api_key:
         raise ValueError("anthropic_api_key is required for market scan")

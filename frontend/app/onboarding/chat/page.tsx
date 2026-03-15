@@ -165,7 +165,7 @@ export default function OnboardingChatPage() {
   const [step3Companies, setStep3Companies] = useState('')
   const [qaKey, setQaKey] = useState(0) // reset input components
   const [bgMounted, setBgMounted] = useState(false)
-  const [openingDone, setOpeningDone] = useState(false)
+  const openingDoneRef = useRef(false) // ref avoids triggering deps re-run
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Scroll to bottom on new messages
@@ -189,10 +189,11 @@ export default function OnboardingChatPage() {
     })
   }, [])
 
-  // Opening sequence — runs once token is loaded
+  // Opening sequence — runs once token is loaded.
+  // openingDoneRef is a ref (not state) so mutating it doesn't trigger cleanup + re-run.
   useEffect(() => {
-    if (!token || openingDone) return
-    setOpeningDone(true)
+    if (!token || openingDoneRef.current) return
+    openingDoneRef.current = true
 
     const timeouts: ReturnType<typeof setTimeout>[] = []
 
@@ -253,7 +254,7 @@ export default function OnboardingChatPage() {
     return () => {
       timeouts.forEach(clearTimeout)
     }
-  }, [token, firstName, openingDone])
+  }, [token, firstName])
 
   function addMessage(msg: ChatMessage) {
     setMessages((prev) => [...prev, msg])
