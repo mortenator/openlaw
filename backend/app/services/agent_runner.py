@@ -80,6 +80,7 @@ async def run_job(
         supabase_admin=supabase_admin,
         settings=settings,
         anthropic_api_key=getattr(settings, "anthropic_api_key", None),
+        resend_api_key=getattr(settings, "resend_api_key", ""),
         cron_id=cron_id,
     )
     return {"job_type": job_type, "user_id": user_id, "result": result}

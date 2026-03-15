@@ -1,4 +1,5 @@
 """Weekly digest compiler: pulls top-5 pending outreach suggestions and sends via Resend."""
+import html
 import logging
 from datetime import datetime, timezone
 
@@ -14,11 +15,10 @@ def _build_html(suggestions: list[dict], date_str: str) -> str:
     rows = []
     for s in suggestions:
         contact = s.get("contacts") or {}
-        signal = s.get("signals") or {}
-        name = contact.get("name", "Unknown")
-        role = contact.get("role") or "Contact"
-        reason = s.get("trigger_summary") or "Health score dropped below threshold"
-        draft = s.get("body", "")
+        name = html.escape(contact.get("name", "Unknown"))
+        role = html.escape(contact.get("role") or "Contact")
+        reason = html.escape(s.get("trigger_summary") or "Health score dropped below threshold")
+        draft = html.escape(s.get("body", ""))
         rows.append(
             f"<tr>"
             f"<td style='padding:12px 0;border-bottom:1px solid #eee;'>"
@@ -46,7 +46,6 @@ def _build_text(suggestions: list[dict], date_str: str) -> str:
     lines = [f"Your weekly relationship brief — {date_str}\n"]
     for i, s in enumerate(suggestions, 1):
         contact = s.get("contacts") or {}
-        signal = s.get("signals") or {}
         name = contact.get("name", "Unknown")
         role = contact.get("role") or "Contact"
         reason = s.get("trigger_summary") or "Health score dropped below threshold"

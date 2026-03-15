@@ -91,9 +91,11 @@ async def generate_outreach_suggestions(
                     )
                 else:
                     last_contacted_dt = last_contacted_raw
+                    if last_contacted_dt.tzinfo is None:
+                        last_contacted_dt = last_contacted_dt.replace(tzinfo=timezone.utc)
                 days = (datetime.now(timezone.utc) - last_contacted_dt).days
             else:
-                days = "unknown"
+                days = 0
             trigger_summary = (
                 f"Tier {tier} contact — {days} days since last contact. "
                 f"{signal['headline']}"
