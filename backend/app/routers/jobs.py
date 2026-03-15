@@ -1,3 +1,5 @@
+import hmac
+
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
@@ -19,7 +21,7 @@ async def run_job_webhook(
     payload: JobRequest,
     x_cron_secret: str = Header(...),
 ) -> dict:
-    if x_cron_secret != settings.cron_secret:
+    if not hmac.compare_digest(x_cron_secret, settings.cron_secret):
         raise HTTPException(status_code=403, detail="Invalid cron secret")
 
     try:

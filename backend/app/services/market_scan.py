@@ -1,8 +1,14 @@
+import logging
+
+import anthropic
 import httpx
 
 from app.config import settings
 
+log = logging.getLogger(__name__)
+
 _BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/news/search"
+_MAX_KEYWORDS = 3
 
 _SIGNAL_TYPES = {"new_gc", "deal_announced", "investment", "competitor_move", "general_news"}
 _CLASSIFY_PROMPT = (
@@ -33,11 +39,12 @@ async def classify_signal_type(
     headline: str, summary: str, anthropic_api_key: str
 ) -> str:
     """Send a one-shot prompt to Claude Haiku to classify the signal type."""
-    try:
-        import anthropic
+    if not anthropic_api_key:
+        raise ValueError("anthropic_api_key is required for signal classification")
 
-        client = anthropic.Anthropic(api_key=anthropic_api_key)
-        message = client.messages.create(
+    try:
+        client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
+        message = await client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=20,
             messages=[
@@ -52,6 +59,7 @@ async def classify_signal_type(
         label = message.content[0].text.strip().lower()
         return label if label in _SIGNAL_TYPES else "general_news"
     except Exception:
+        log.exception("classify_signal_type failed for headline=%r", headline)
         return "general_news"
 
 
@@ -63,6 +71,9 @@ async def scan_market_for_user(
     keywords: list[str] = None,
     **kwargs,
 ) -> dict:
+    if not anthropic_api_key:
+        raise ValueError("anthropic_api_key is required for market scan")
+
     companies = (
         supabase_admin.table("companies")
         .select("id, name")
@@ -75,7 +86,7 @@ async def scan_market_for_user(
     for company in companies:
         company_name = company["name"]
         if keywords:
-            kw_clause = " OR ".join(f'"{k}"' for k in keywords[:3])
+            kw_clause = " OR ".join(f'"{k}"' for k in keywords[:_MAX_KEYWORDS])
             query = f'"{company_name}" AND ({kw_clause})'
         else:
             query = company_name
@@ -86,12 +97,27 @@ async def scan_market_for_user(
             continue
 
         for article in articles:
+            source_url = article.get("url")
             headline = article.get("title", "")
             summary = article.get("description")
+
+            # Deduplicate by source_url
+            if source_url:
+                existing = (
+                    supabase_admin.table("signals")
+                    .select("id")
+                    .eq("source_url", source_url)
+                    .eq("user_id", user_id)
+                    .limit(1)
+                    .execute()
+                ).data
+                if existing:
+                    continue
+
             signal_type = await classify_signal_type(
                 headline=headline,
                 summary=summary or "",
-                anthropic_api_key=anthropic_api_key or "",
+                anthropic_api_key=anthropic_api_key,
             )
             supabase_admin.table("signals").insert(
                 {
@@ -99,7 +125,7 @@ async def scan_market_for_user(
                     "company_id": company["id"],
                     "type": signal_type,
                     "headline": headline,
-                    "source_url": article.get("url"),
+                    "source_url": source_url,
                     "summary": summary,
                 }
             ).execute()
