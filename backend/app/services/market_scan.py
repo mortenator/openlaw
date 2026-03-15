@@ -67,7 +67,9 @@ async def scan_market_for_user(
     **_kwargs,
 ) -> dict:
     if not anthropic_api_key:
-        raise ValueError("anthropic_api_key is required for market scan")
+        raise ValueError(
+            "anthropic_api_key is required for market scan — set ANTHROPIC_API_KEY env var"
+        )
 
     anthropic_client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
 
