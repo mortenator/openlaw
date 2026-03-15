@@ -1,11 +1,16 @@
+import json
+import logging
+import re
 from datetime import datetime, timezone, timedelta
 
 import anthropic
 
+log = logging.getLogger(__name__)
+
 
 async def generate_outreach_suggestions(
-    user_id: str, supabase_admin, anthropic_api_key: str = None, settings=None
-) -> int:
+    user_id: str, supabase_admin, anthropic_api_key: str = None, settings=None, **_kwargs
+) -> dict:
     # Support both calling conventions (positional anthropic_api_key or via settings)
     api_key = anthropic_api_key or (settings.anthropic_api_key if settings else None)
     if api_key is None:
@@ -22,67 +27,75 @@ async def generate_outreach_suggestions(
     )
     contacts = contacts_result.data or []
     if not contacts:
-        return 0
+        return {"suggestions_created": 0}
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    client = anthropic.Anthropic(api_key=api_key)
     created = 0
 
-    for contact in contacts:
-        company_id = contact.get("company_id")
-        if not company_id:
-            continue
+    # Use async with so connection pool is always closed, even on exception
+    async with anthropic.AsyncAnthropic(api_key=api_key) as client:
+        for contact in contacts:
+            company_id = contact.get("company_id")
+            if not company_id:
+                continue
 
-        signals_result = (
-            supabase_admin.table("signals")
-            .select("id, headline, summary, type")
-            .eq("company_id", company_id)
-            .gte("created_at", cutoff)
-            .limit(1)
-            .execute()
-        )
-        signals = signals_result.data or []
-        if not signals:
-            continue
-
-        signal = signals[0]
-        prompt = (
-            f"You are drafting a warm outreach email for a deal lawyer.\n\n"
-            f"Contact: {contact['name']} ({contact.get('role', 'unknown role')})\n"
-            f"Recent news about their company: {signal['headline']}\n"
-            f"Summary: {signal.get('summary', '')}\n\n"
-            f"Write a short, professional outreach email. "
-            f"Return JSON with keys: subject, draft_message. "
-            f"Keep it under 150 words. Be specific about the news angle."
-        )
-
-        try:
-            response = client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=512,
-                messages=[{"role": "user", "content": prompt}],
+            signals_result = (
+                supabase_admin.table("signals")
+                .select("id, headline, summary, type")
+                .eq("company_id", company_id)
+                .gte("created_at", cutoff)
+                .limit(1)
+                .execute()
             )
-            import json
-            text = response.content[0].text
-            # Strip markdown code fences if present
-            if "```" in text:
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
-            parsed = json.loads(text.strip())
-        except Exception:
-            continue
+            signals = signals_result.data or []
+            if not signals:
+                continue
 
-        supabase_admin.table("outreach_suggestions").insert(
-            {
-                "user_id": user_id,
-                "contact_id": contact["id"],
-                "signal_id": signal["id"],
-                "subject": parsed.get("subject", ""),
-                "draft_message": parsed.get("draft_message", ""),
-                "status": "pending",
-            }
-        ).execute()
-        created += 1
+            signal = signals[0]
+            prompt = (
+                f"You are drafting a warm outreach email for a deal lawyer.\n\n"
+                f"Contact: {contact['name']} ({contact.get('role', 'unknown role')})\n"
+                f"Recent news about their company: {signal['headline']}\n"
+                f"Summary: {signal.get('summary', '')}\n\n"
+                f"Write a short, professional outreach email. "
+                f"Return JSON with keys: subject, draft_message. "
+                f"Keep it under 150 words. Be specific about the news angle."
+            )
 
-    return created
+            try:
+                response = await client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=512,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                text = response.content[0].text
+                # Strip markdown code fences robustly
+                fence_match = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+                if fence_match:
+                    text = fence_match.group(1)
+                parsed = json.loads(text.strip())
+            except Exception:
+                log.exception(
+                    "Failed to generate suggestion for contact_id=%s signal_id=%s",
+                    contact["id"], signal["id"],
+                )
+                continue
+
+            try:
+                supabase_admin.table("outreach_suggestions").insert(
+                    {
+                        "user_id": user_id,
+                        "contact_id": contact["id"],
+                        "signal_id": signal["id"],
+                        "subject": parsed.get("subject", ""),
+                        "draft_message": parsed.get("draft_message", ""),
+                        "status": "pending",
+                    }
+                ).execute()
+                created += 1
+            except Exception:
+                log.exception(
+                    "DB insert failed for outreach suggestion contact_id=%s", contact["id"]
+                )
+
+    return {"suggestions_created": created}
