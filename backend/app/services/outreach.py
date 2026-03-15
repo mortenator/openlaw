@@ -19,7 +19,7 @@ async def generate_outreach_suggestions(
     # Fetch tier 1 and 2 contacts with health_score < 60
     contacts_result = (
         supabase_admin.table("contacts")
-        .select("id, name, role, company_id")
+        .select("id, name, role, company_id, tier, last_contacted_at")
         .eq("user_id", user_id)
         .in_("tier", [1, 2])
         .lt("health_score", 60)
@@ -81,6 +81,24 @@ async def generate_outreach_suggestions(
                 )
                 continue
 
+            # Build human-readable trigger summary
+            tier = contact.get("tier", 2)
+            last_contacted_raw = contact.get("last_contacted_at")
+            if last_contacted_raw:
+                if isinstance(last_contacted_raw, str):
+                    last_contacted_dt = datetime.fromisoformat(
+                        last_contacted_raw.replace("Z", "+00:00")
+                    )
+                else:
+                    last_contacted_dt = last_contacted_raw
+                days = (datetime.now(timezone.utc) - last_contacted_dt).days
+            else:
+                days = "unknown"
+            trigger_summary = (
+                f"Tier {tier} contact — {days} days since last contact. "
+                f"{signal['headline']}"
+            )
+
             try:
                 supabase_admin.table("outreach_suggestions").insert(
                     {
@@ -88,8 +106,9 @@ async def generate_outreach_suggestions(
                         "contact_id": contact["id"],
                         "signal_id": signal["id"],
                         "subject": parsed.get("subject", ""),
-                        "draft_message": parsed.get("draft_message", ""),
+                        "body": parsed.get("draft_message", ""),
                         "status": "pending",
+                        "trigger_summary": trigger_summary,
                     }
                 ).execute()
                 created += 1

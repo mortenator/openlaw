@@ -156,6 +156,7 @@ class OutreachSuggestionOut(BaseModel):
     body: str
     edited_body: Optional[str]
     status: str
+    trigger_summary: Optional[str] = None
     scheduled_at: Optional[datetime]
     sent_at: Optional[datetime]
     created_at: datetime

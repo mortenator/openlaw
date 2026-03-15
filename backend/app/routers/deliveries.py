@@ -1,10 +1,9 @@
 import uuid
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from app.database import supabase
 from app.models.schema import DeliveryOut, OutreachSuggestionOut, OutreachSuggestionUpdate
-from fastapi import HTTPException
 
 router = APIRouter(tags=["deliveries"])
 
@@ -25,6 +24,23 @@ async def list_outreach_suggestions(
         query = query.eq("status", status)
     result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     return [OutreachSuggestionOut(**row) for row in (result.data or [])]
+
+
+@router.get("/users/{user_id}/deliveries", response_model=list[DeliveryOut])
+async def list_deliveries(
+    user_id: uuid.UUID,
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0),
+) -> list[DeliveryOut]:
+    result = (
+        supabase.table("deliveries")
+        .select("*")
+        .eq("user_id", str(user_id))
+        .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
+        .execute()
+    )
+    return [DeliveryOut(**row) for row in (result.data or [])]
 
 
 @router.patch("/outreach-suggestions/{suggestion_id}", response_model=OutreachSuggestionOut)
