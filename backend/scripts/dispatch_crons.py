@@ -1,0 +1,66 @@
+"""Cron dispatcher script — Railway calls this every 15 minutes."""
+import logging
+import os
+from datetime import datetime, timezone
+
+import httpx
+from croniter import croniter
+from supabase import create_client
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger(__name__)
+
+
+def main() -> None:
+    supabase_url = os.environ["SUPABASE_URL"]
+    service_role_key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    cron_secret = os.environ["CRON_SECRET"]
+    job_api_url = os.getenv("JOB_API_URL", "http://localhost:8000/jobs/run")
+
+    supabase = create_client(supabase_url, service_role_key)
+    now = datetime.now(timezone.utc)
+
+    rows = (
+        supabase.table("user_crons")
+        .select("id, job_type, user_id, cron_expression, last_run_at")
+        .eq("is_active", True)
+        .lte("next_run_at", now.isoformat())
+        .execute()
+    ).data or []
+
+    log.info("Found %d due cron jobs", len(rows))
+
+    for row in rows:
+        job_type = row["job_type"]
+        user_id = row["user_id"]
+        cron_id = row["id"]
+
+        try:
+            response = httpx.post(
+                job_api_url,
+                json={"job_type": job_type, "user_id": user_id, "cron_id": cron_id},
+                headers={"X-Cron-Secret": cron_secret},
+                timeout=30,
+            )
+            response.raise_for_status()
+            success = True
+        except Exception as exc:
+            log.error("job_type=%s user_id=%s FAILED: %s", job_type, user_id, exc)
+            success = False
+
+        if success:
+            cron_expr = row["cron_expression"]
+            next_run = croniter(cron_expr, now).get_next(datetime)
+            supabase.table("user_crons").update(
+                {
+                    "last_run_at": now.isoformat(),
+                    "next_run_at": next_run.isoformat(),
+                }
+            ).eq("id", cron_id).execute()
+            log.info(
+                "job_type=%s user_id=%s OK — next_run_at=%s", job_type, user_id, next_run
+            )
+
+
+if __name__ == "__main__":
+    main()

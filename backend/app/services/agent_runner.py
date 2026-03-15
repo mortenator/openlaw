@@ -1,6 +1,6 @@
 """Orchestrates running agent jobs for a specific user."""
 from .health_score import compute_health_score
-from .market_scan import fetch_signals
+from .market_scan import scan_market_for_user as _scan_market_for_user
 from .outreach import generate_outreach_suggestions
 
 
@@ -28,35 +28,33 @@ async def recalculate_all_for_user(user_id: str, supabase_admin, **kwargs) -> di
     return {"contacts_updated": updated}
 
 
-async def scan_market_for_user(user_id: str, supabase_admin, settings=None, **kwargs) -> dict:
-    companies = (
-        supabase_admin.table("companies")
-        .select("id, name")
-        .eq("user_id", user_id)
-        .eq("is_watchlist", True)
-        .execute()
-    ).data or []
+async def scan_market_for_user(
+    user_id: str,
+    supabase_admin,
+    settings=None,
+    anthropic_api_key: str = None,
+    cron_id: str = None,
+    **kwargs,
+) -> dict:
+    keywords: list[str] = []
+    if cron_id:
+        row = (
+            supabase_admin.table("user_crons")
+            .select("config")
+            .eq("id", cron_id)
+            .maybe_single()
+            .execute()
+        ).data
+        if row and row.get("config"):
+            keywords = row["config"].get("keywords", [])
 
-    inserted = 0
-    for company in companies:
-        try:
-            articles = await fetch_signals(company["name"], count=5)
-        except Exception:
-            continue
-        for article in articles:
-            supabase_admin.table("signals").insert(
-                {
-                    "user_id": user_id,
-                    "company_id": company["id"],
-                    "type": "general_news",
-                    "headline": article.get("title", ""),
-                    "source_url": article.get("url"),
-                    "summary": article.get("description"),
-                }
-            ).execute()
-            inserted += 1
-
-    return {"signals_inserted": inserted}
+    return await _scan_market_for_user(
+        user_id=user_id,
+        supabase_admin=supabase_admin,
+        settings=settings,
+        anthropic_api_key=anthropic_api_key,
+        keywords=keywords or None,
+    )
 
 
 JOB_TYPES = {
@@ -66,7 +64,13 @@ JOB_TYPES = {
 }
 
 
-async def run_job(job_type: str, user_id: str, supabase_admin, settings) -> dict:
+async def run_job(
+    job_type: str,
+    user_id: str,
+    supabase_admin,
+    settings,
+    cron_id: str = None,
+) -> dict:
     if job_type not in JOB_TYPES:
         raise ValueError(f"Unknown job type: {job_type}")
     handler = JOB_TYPES[job_type]
@@ -75,5 +79,6 @@ async def run_job(job_type: str, user_id: str, supabase_admin, settings) -> dict
         supabase_admin=supabase_admin,
         settings=settings,
         anthropic_api_key=getattr(settings, "anthropic_api_key", None),
+        cron_id=cron_id,
     )
     return {"job_type": job_type, "user_id": user_id, "result": result}

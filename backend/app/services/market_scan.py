@@ -4,6 +4,13 @@ from app.config import settings
 
 _BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/news/search"
 
+_SIGNAL_TYPES = {"new_gc", "deal_announced", "investment", "competitor_move", "general_news"}
+_CLASSIFY_PROMPT = (
+    "Classify this news headline into exactly one of: "
+    "new_gc, deal_announced, investment, competitor_move, general_news\n\n"
+    "Headline: {headline}\nSummary: {summary}\n\nRespond with only the classification label."
+)
+
 
 async def fetch_signals(query: str, count: int = 10) -> list[dict]:
     """Query Brave News Search API and return raw result items."""
@@ -15,8 +22,87 @@ async def fetch_signals(query: str, count: int = 10) -> list[dict]:
     params = {"q": query, "count": count, "freshness": "pw"}
 
     async with httpx.AsyncClient(timeout=15) as client:
-        response = client.get(_BRAVE_SEARCH_URL, headers=headers, params=params)
+        response = await client.get(_BRAVE_SEARCH_URL, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
 
     return data.get("results", [])
+
+
+async def classify_signal_type(
+    headline: str, summary: str, anthropic_api_key: str
+) -> str:
+    """Send a one-shot prompt to Claude Haiku to classify the signal type."""
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=anthropic_api_key)
+        message = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=20,
+            messages=[
+                {
+                    "role": "user",
+                    "content": _CLASSIFY_PROMPT.format(
+                        headline=headline, summary=summary or ""
+                    ),
+                }
+            ],
+        )
+        label = message.content[0].text.strip().lower()
+        return label if label in _SIGNAL_TYPES else "general_news"
+    except Exception:
+        return "general_news"
+
+
+async def scan_market_for_user(
+    user_id: str,
+    supabase_admin,
+    settings=None,
+    anthropic_api_key: str = None,
+    keywords: list[str] = None,
+    **kwargs,
+) -> dict:
+    companies = (
+        supabase_admin.table("companies")
+        .select("id, name")
+        .eq("user_id", user_id)
+        .eq("is_watchlist", True)
+        .execute()
+    ).data or []
+
+    inserted = 0
+    for company in companies:
+        company_name = company["name"]
+        if keywords:
+            kw_clause = " OR ".join(f'"{k}"' for k in keywords[:3])
+            query = f'"{company_name}" AND ({kw_clause})'
+        else:
+            query = company_name
+
+        try:
+            articles = await fetch_signals(query, count=5)
+        except Exception:
+            continue
+
+        for article in articles:
+            headline = article.get("title", "")
+            summary = article.get("description")
+            signal_type = await classify_signal_type(
+                headline=headline,
+                summary=summary or "",
+                anthropic_api_key=anthropic_api_key or "",
+            )
+            supabase_admin.table("signals").insert(
+                {
+                    "user_id": user_id,
+                    "company_id": company["id"],
+                    "type": signal_type,
+                    "headline": headline,
+                    "source_url": article.get("url"),
+                    "summary": summary,
+                }
+            ).execute()
+            inserted += 1
+
+    return {"signals_inserted": inserted}

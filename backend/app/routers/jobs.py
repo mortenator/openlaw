@@ -11,6 +11,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 class JobRequest(BaseModel):
     job_type: str
     user_id: str
+    cron_id: str | None = None
 
 
 @router.post("/run")
@@ -27,6 +28,7 @@ async def run_job_webhook(
             user_id=payload.user_id,
             supabase_admin=supabase,
             settings=settings,
+            cron_id=payload.cron_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
