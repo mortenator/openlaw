@@ -27,8 +27,9 @@ async def generate_outreach_suggestions(
         return 0
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    # Use async with to ensure httpx connection pool is closed after job completes
     created = 0
+    client = anthropic.AsyncAnthropic(api_key=api_key)
 
     for contact in contacts:
         company_id = contact.get("company_id")
@@ -85,4 +86,5 @@ async def generate_outreach_suggestions(
         ).execute()
         created += 1
 
+    await client.close()
     return {"suggestions_created": created}
