@@ -24,7 +24,7 @@ async def generate_outreach_suggestions(
     )
     contacts = contacts_result.data or []
     if not contacts:
-        return 0
+        return {"suggestions_created": 0}
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     # Use async with to ensure httpx connection pool is closed after job completes
