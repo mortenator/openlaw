@@ -64,7 +64,9 @@ def main() -> None:
         if not cron_expr:
             # Disable broken row rather than re-firing every tick
             log.error("job_type=%s cron_id=%s has no cron_expression — disabling", job_type, cron_id)
-            supabase.table("user_crons").update({"is_active": False}).eq("id", cron_id).execute()
+            supabase.table("user_crons").update(
+                {"is_active": False, "last_run_at": now.isoformat()}
+            ).eq("id", cron_id).execute()
             continue
         try:
             next_run = croniter(cron_expr, now).get_next(datetime)

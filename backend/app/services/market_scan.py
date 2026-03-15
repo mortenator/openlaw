@@ -100,6 +100,7 @@ async def scan_market_for_user(
             try:
                 articles = await fetch_signals(query, count=5)
             except Exception:
+                log.warning("fetch_signals failed for company=%r query=%r", company_name, query, exc_info=True)
                 continue
 
             # Filter to new articles only (dedup before classification)
