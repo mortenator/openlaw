@@ -118,6 +118,7 @@ class CompanyOut(BaseModel):
     domain: Optional[str]
     industry: Optional[str]
     tags: list[str]
+    is_watchlist: bool = False
     notes: Optional[str]
     created_at: datetime
     updated_at: datetime
