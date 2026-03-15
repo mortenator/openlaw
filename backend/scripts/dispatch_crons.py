@@ -60,8 +60,13 @@ def main() -> None:
         # Always record last_run_at and advance next_run_at regardless of success/failure
         # to prevent the same failed job from re-triggering on every subsequent tick.
         update_payload: dict = {"last_run_at": now.isoformat()}
+        cron_expr = row.get("cron_expression")
+        if not cron_expr:
+            # Disable broken row rather than re-firing every tick
+            log.error("job_type=%s cron_id=%s has no cron_expression — disabling", job_type, cron_id)
+            supabase.table("user_crons").update({"is_active": False}).eq("id", cron_id).execute()
+            continue
         try:
-            cron_expr = row["cron_expression"]
             next_run = croniter(cron_expr, now).get_next(datetime)
             update_payload["next_run_at"] = next_run.isoformat()
             log.info(
@@ -70,9 +75,11 @@ def main() -> None:
             )
         except Exception as exc:
             log.error(
-                "job_type=%s user_id=%s could not compute next_run_at: %s",
-                job_type, user_id, exc,
+                "job_type=%s user_id=%s could not parse cron_expression=%r: %s — disabling",
+                job_type, user_id, cron_expr, exc,
             )
+            supabase.table("user_crons").update({"is_active": False}).eq("id", cron_id).execute()
+            continue
         supabase.table("user_crons").update(update_payload).eq("id", cron_id).execute()
 
 

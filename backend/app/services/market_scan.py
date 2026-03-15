@@ -3,7 +3,7 @@ import logging
 import anthropic
 import httpx
 
-from app.config import settings
+from app.config import settings  # used by fetch_signals for brave_api_key
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +72,8 @@ async def scan_market_for_user(
         )
 
     anthropic_client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
+    # Note: AsyncAnthropic manages its own connection pool; explicit close not required
+    # for short-lived job invocations, but use async with in long-running services.
 
     companies = (
         supabase_admin.table("companies")
@@ -84,12 +86,15 @@ async def scan_market_for_user(
     inserted = 0
     for company in companies:
         company_name = company["name"]
+        # Sanitize quotes to avoid breaking Brave query syntax
+        safe_name = company_name.replace('"', '')
         filtered_keywords = [k for k in (keywords or []) if k.strip()]
         if filtered_keywords:
-            kw_clause = " OR ".join(f'"{k}"' for k in filtered_keywords[:_MAX_KEYWORDS])
-            query = f'"{company_name}" AND ({kw_clause})'
+            safe_keywords = [k.replace('"', '') for k in filtered_keywords[:_MAX_KEYWORDS]]
+            kw_clause = " OR ".join(f'"{k}"' for k in safe_keywords)
+            query = f'"{safe_name}" AND ({kw_clause})'
         else:
-            query = company_name
+            query = safe_name
 
         try:
             articles = await fetch_signals(query, count=5)

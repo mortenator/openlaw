@@ -1,3 +1,5 @@
+import json
+import re
 from datetime import datetime, timezone, timedelta
 
 import anthropic
@@ -57,7 +59,6 @@ async def generate_outreach_suggestions(
         )
 
         try:
-            import json, re
             response = await client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=512,
@@ -84,4 +85,4 @@ async def generate_outreach_suggestions(
         ).execute()
         created += 1
 
-    return created
+    return {"suggestions_created": created}
