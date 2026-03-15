@@ -7,7 +7,7 @@ import anthropic
 
 async def generate_outreach_suggestions(
     user_id: str, supabase_admin, anthropic_api_key: str = None, settings=None, **_kwargs
-) -> int:
+) -> dict:
     # Support both calling conventions (positional anthropic_api_key or via settings)
     api_key = anthropic_api_key or (settings.anthropic_api_key if settings else None)
     if api_key is None:

@@ -35,7 +35,7 @@ def main() -> None:
         .is_("next_run_at", "null")
         .execute()
     ).data or []
-    rows = {r["id"]: r for r in due_rows + null_rows}.values()  # deduplicate by id
+    rows = list({r["id"]: r for r in due_rows + null_rows}.values())  # deduplicate by id
 
     log.info("Found %d due cron jobs", len(rows))
 
