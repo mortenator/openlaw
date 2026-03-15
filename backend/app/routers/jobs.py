@@ -21,7 +21,7 @@ async def run_job_webhook(
     payload: JobRequest,
     x_cron_secret: str = Header(...),
 ) -> dict:
-    if not hmac.compare_digest(x_cron_secret, settings.cron_secret):
+    if not hmac.compare_digest(str(x_cron_secret), str(settings.cron_secret)):
         raise HTTPException(status_code=403, detail="Invalid cron secret")
 
     try:

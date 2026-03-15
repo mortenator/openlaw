@@ -51,7 +51,6 @@ async def scan_market_for_user(
     return await _scan_market_for_user(
         user_id=user_id,
         supabase_admin=supabase_admin,
-        settings=settings,
         anthropic_api_key=anthropic_api_key,
         keywords=keywords or None,
     )

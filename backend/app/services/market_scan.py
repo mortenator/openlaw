@@ -36,14 +36,10 @@ async def fetch_signals(query: str, count: int = 10) -> list[dict]:
 
 
 async def classify_signal_type(
-    headline: str, summary: str, anthropic_api_key: str
+    headline: str, summary: str, client: anthropic.AsyncAnthropic
 ) -> str:
     """Send a one-shot prompt to Claude Haiku to classify the signal type."""
-    if not anthropic_api_key:
-        raise ValueError("anthropic_api_key is required for signal classification")
-
     try:
-        client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
         message = await client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=20,
@@ -66,13 +62,14 @@ async def classify_signal_type(
 async def scan_market_for_user(
     user_id: str,
     supabase_admin,
-    settings=None,
     anthropic_api_key: str = None,
     keywords: list[str] = None,
     **kwargs,
 ) -> dict:
     if not anthropic_api_key:
         raise ValueError("anthropic_api_key is required for market scan")
+
+    anthropic_client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
 
     companies = (
         supabase_admin.table("companies")
@@ -85,8 +82,9 @@ async def scan_market_for_user(
     inserted = 0
     for company in companies:
         company_name = company["name"]
-        if keywords:
-            kw_clause = " OR ".join(f'"{k}"' for k in keywords[:_MAX_KEYWORDS])
+        filtered_keywords = [k for k in (keywords or []) if k.strip()]
+        if filtered_keywords:
+            kw_clause = " OR ".join(f'"{k}"' for k in filtered_keywords[:_MAX_KEYWORDS])
             query = f'"{company_name}" AND ({kw_clause})'
         else:
             query = company_name
@@ -101,7 +99,7 @@ async def scan_market_for_user(
             headline = article.get("title", "")
             summary = article.get("description")
 
-            # Deduplicate by source_url
+            # Deduplicate: primary key is source_url; fall back to (headline, company_id) for null-URL articles
             if source_url:
                 existing = (
                     supabase_admin.table("signals")
@@ -113,11 +111,23 @@ async def scan_market_for_user(
                 ).data
                 if existing:
                     continue
+            else:
+                existing = (
+                    supabase_admin.table("signals")
+                    .select("id")
+                    .eq("headline", headline)
+                    .eq("company_id", company["id"])
+                    .eq("user_id", user_id)
+                    .limit(1)
+                    .execute()
+                ).data
+                if existing:
+                    continue
 
             signal_type = await classify_signal_type(
                 headline=headline,
                 summary=summary or "",
-                anthropic_api_key=anthropic_api_key,
+                client=anthropic_client,
             )
             supabase_admin.table("signals").insert(
                 {
