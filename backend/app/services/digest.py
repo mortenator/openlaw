@@ -59,8 +59,9 @@ def _build_text(suggestions: list[dict], date_str: str) -> str:
 
 async def compile_and_send_weekly_digest(
     user_id: str, supabase_admin, resend_api_key: str | None = None,
-    from_address: str = "OpenLaw <briefs@openlaw.ai>", **_kwargs
+    from_address: str | None = None, **_kwargs
 ) -> dict:
+    # from_address defaults to config.resend_from_address — no inline default to avoid drift
     if not resend_api_key:
         return {"sent": False, "reason": "resend_api_key_not_configured"}
 
@@ -92,6 +93,7 @@ async def compile_and_send_weekly_digest(
         .select("id, body, trigger_summary, contacts(name, role, health_score), signals(headline, created_at)")
         .eq("user_id", user_id)
         .eq("status", "pending")
+        .limit(50)  # bound fetch; we only need top 5 after sort
         .execute()
     )
     rows = suggestions_result.data or []
@@ -132,7 +134,7 @@ async def compile_and_send_weekly_digest(
                 _RESEND_URL,
                 headers={"Authorization": f"Bearer {resend_api_key}"},
                 json={
-                    "from": from_address,
+                    "from": from_address or "OpenLaw <briefs@openlaw.ai>",
                     "to": [user_email],
                     "subject": subject,
                     "html": html_body,

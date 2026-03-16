@@ -156,7 +156,7 @@ class OutreachSuggestionOut(BaseModel):
     subject: str
     body: str
     edited_body: Optional[str]
-    status: str
+    status: Literal["pending", "approved", "sent", "dismissed", "digest_sent"]
     trigger_summary: Optional[str] = None
     scheduled_at: Optional[datetime]
     sent_at: Optional[datetime]
