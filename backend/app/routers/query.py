@@ -1,10 +1,10 @@
-import anthropic
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.config import settings
-from app.database import supabase
+from app.database import supabase, supabase_admin
 from app.deps import get_current_user
+from app.services.agent_loop import run_agent_loop
 
 router = APIRouter(prefix="/query", tags=["query"])
 
@@ -13,10 +13,10 @@ class QueryRequest(BaseModel):
     message: str
 
 
-def _build_system_prompt(configs: list[dict]) -> str:
+def _build_user_context(configs: list[dict]) -> str:
     content_map = {row["file_name"]: row["content"] for row in configs}
     parts = []
-    for name in ("SOUL.md", "USER.md", "MEMORY.md"):
+    for name in ("USER.md", "MEMORY.md"):
         if name in content_map:
             parts.append(content_map[name])
     return "\n\n---\n\n".join(parts)
@@ -24,64 +24,36 @@ def _build_system_prompt(configs: list[dict]) -> str:
 
 @router.post("")
 async def query(payload: QueryRequest, current_user=Depends(get_current_user)) -> dict:
-    # Configs are stored in agent_memory_logs with memory_key / memory_val columns
     configs_result = (
         supabase.table("agent_memory_logs")
         .select("memory_key,memory_val")
         .eq("user_id", current_user.id)
-        .in_("memory_key", ["SOUL.md", "USER.md", "MEMORY.md"])
+        .in_("memory_key", ["USER.md", "MEMORY.md"])
         .execute()
     )
-    # Normalise to {file_name, content} shape expected by _build_system_prompt
     rows = [
-        {"file_name": r["memory_key"], "content": r["memory_val"].get("content", "") if isinstance(r["memory_val"], dict) else ""}
+        {
+            "file_name": r["memory_key"],
+            "content": (
+                r["memory_val"].get("content", "")
+                if isinstance(r["memory_val"], dict)
+                else ""
+            ),
+        }
         for r in (configs_result.data or [])
     ]
-    system_prompt = _build_system_prompt(rows)
+    user_context = _build_user_context(rows)
 
     try:
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=1024,
-            system=system_prompt,
-            messages=[{"role": "user", "content": payload.message}],
+        result = await run_agent_loop(
+            user_message=payload.message,
+            user_id=str(current_user.id),
+            supabase_admin=supabase_admin,
+            brave_api_key=settings.brave_api_key,
+            anthropic_api_key=settings.anthropic_api_key,
+            user_context=user_context,
         )
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Anthropic API error: {exc}")
+        raise HTTPException(status_code=502, detail=f"Agent loop error: {exc}")
 
-    return {"response": response.content[0].text}
-
-@router.get("/debug")
-async def debug_query():
-    """Temporary debug endpoint - remove after debugging."""
-    import os
-    has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    key_prefix = os.environ.get("ANTHROPIC_API_KEY", "")[:10] if has_key else ""
-    
-    try:
-        client = anthropic.Anthropic()
-        resp = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=10,
-            messages=[{"role": "user", "content": "say hi"}]
-        )
-        return {"anthropic_ok": True, "has_key": has_key, "key_prefix": key_prefix}
-    except Exception as e:
-        return {"anthropic_ok": False, "error": str(e), "has_key": has_key, "key_prefix": key_prefix}
-
-
-@router.get("/debug-auth")
-async def debug_auth(authorization: str = None) -> dict:
-    """Test auth validation - pass ?authorization=Bearer+<token>"""
-    from app.database import supabase as sb
-    if not authorization:
-        return {"error": "pass ?authorization=Bearer <token>"}
-    token = authorization.replace("Bearer ", "").strip()
-    try:
-        resp = sb.auth.get_user(token)
-        if resp.user:
-            return {"auth_ok": True, "user_id": str(resp.user.id), "email": resp.user.email}
-        return {"auth_ok": False, "user": None}
-    except Exception as e:
-        return {"auth_ok": False, "error": str(e), "error_type": type(e).__name__}
+    return result
