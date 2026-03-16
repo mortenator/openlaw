@@ -57,7 +57,7 @@ def _build_text(suggestions: list[dict], date_str: str) -> str:
 
 
 async def compile_and_send_weekly_digest(
-    user_id: str, supabase_admin, resend_api_key: str = "", **_kwargs
+    user_id: str, supabase_admin, resend_api_key: str | None = None, **_kwargs
 ) -> dict:
     if not resend_api_key:
         raise ValueError("RESEND_API_KEY is not configured — cannot send weekly digest")
@@ -147,12 +147,14 @@ async def compile_and_send_weekly_digest(
         return {"sent": False, "reason": "resend_exception"}
 
     # 5. Mark included suggestions as digest_sent so they don't re-surface next week (single bulk update)
+    mark_failed = False
     try:
         supabase_admin.table("outreach_suggestions").update(
             {"status": "digest_sent"}
         ).in_("id", suggestion_ids).execute()
     except Exception:
-        log.exception("Failed to mark suggestions as digest_sent for user_id=%s", user_id)
+        mark_failed = True
+        log.exception("Failed to mark suggestions as digest_sent for user_id=%s — duplicate send risk on next run", user_id)
 
     # 6. Log delivery — wrap in try/except since email already sent at this point
     delivery_id = None
@@ -180,4 +182,5 @@ async def compile_and_send_weekly_digest(
         "sent": True,
         "suggestions_included": len(top5),
         "delivery_id": delivery_id,
+        "mark_sent_failed": mark_failed,  # True = duplicate send risk next run, check logs
     }
