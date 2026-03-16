@@ -116,7 +116,7 @@ async def generate_outreach_suggestions(
                 days_str = "never contacted"
             else:
                 days_str = f"{days} days since last contact"
-            headline = signal['headline']
+            headline = signal.get('headline', '')
             headline_snippet = headline[:200] + ("…" if len(headline) > 200 else "")
             trigger_summary = f"Tier {tier} contact — {days_str}. {headline_snippet}"
 

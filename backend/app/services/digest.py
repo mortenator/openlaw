@@ -13,7 +13,8 @@ _RESEND_URL = "https://api.resend.com/emails"
 def _build_html(suggestions: list[dict], date_str: str) -> str:
     rows = []
     for s in suggestions:
-        contact = s.get("contacts") or {}
+        _contacts = s.get("contacts") or []
+        contact = (_contacts[0] if isinstance(_contacts, list) else _contacts) or {}
         name = html.escape(contact.get("name", "Unknown"))
         role = html.escape(contact.get("role") or "Contact")
         reason = html.escape(s.get("trigger_summary") or "Health score dropped below threshold")
@@ -44,7 +45,8 @@ def _build_html(suggestions: list[dict], date_str: str) -> str:
 def _build_text(suggestions: list[dict], date_str: str) -> str:
     lines = [f"Your weekly relationship brief — {date_str}\n"]
     for i, s in enumerate(suggestions, 1):
-        contact = s.get("contacts") or {}
+        _contacts = s.get("contacts") or []
+        contact = (_contacts[0] if isinstance(_contacts, list) else _contacts) or {}
         name = contact.get("name", "Unknown")
         role = contact.get("role") or "Contact"
         reason = s.get("trigger_summary") or "Health score dropped below threshold"
@@ -99,8 +101,10 @@ async def compile_and_send_weekly_digest(
 
     # Sort: health_score ASC (worst first), then signals.created_at DESC (most recent)
     def _sort_key(row: dict):
-        contact = row.get("contacts") or {}
-        signal = row.get("signals") or {}
+        _contacts = row.get("contacts") or []
+        contact = (_contacts[0] if isinstance(_contacts, list) else _contacts) or {}
+        _signals = row.get("signals") or []
+        signal = (_signals[0] if isinstance(_signals, list) else _signals) or {}
         health = contact.get("health_score") if contact.get("health_score") is not None else 0  # unknown = worst
         created_raw = signal.get("created_at") or ""
         # Negate created_at for DESC: use negative timestamp
