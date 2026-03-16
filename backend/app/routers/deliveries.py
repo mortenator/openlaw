@@ -43,15 +43,18 @@ async def list_deliveries(
     return [DeliveryOut(**row) for row in (result.data or [])]
 
 
-@router.patch("/outreach-suggestions/{suggestion_id}", response_model=OutreachSuggestionOut)
+@router.patch("/users/{user_id}/outreach-suggestions/{suggestion_id}", response_model=OutreachSuggestionOut)
 async def update_outreach_suggestion(
-    suggestion_id: uuid.UUID, payload: OutreachSuggestionUpdate
+    user_id: uuid.UUID,
+    suggestion_id: uuid.UUID,
+    payload: OutreachSuggestionUpdate,
 ) -> OutreachSuggestionOut:
     data = payload.model_dump(exclude_none=True)
     result = (
         supabase.table("outreach_suggestions")
         .update(data)
         .eq("id", str(suggestion_id))
+        .eq("user_id", str(user_id))  # ownership guard — prevents IDOR
         .execute()
     )
     if not result.data:

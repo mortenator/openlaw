@@ -141,23 +141,27 @@ async def compile_and_send_weekly_digest(
         log.exception("Resend send failed for user_id=%s", user_id)
         return {"sent": False, "reason": "resend_exception"}
 
-    # 5. Log delivery
-    delivery_result = (
-        supabase_admin.table("deliveries")
-        .insert(
-            {
-                "user_id": user_id,
-                "delivery_type": "weekly_digest",
-                "channel": "email",
-                "status": "sent",
-                "payload": {"suggestion_ids": suggestion_ids},
-                "delivered_at": datetime.now(timezone.utc).isoformat(),
-            }
+    # 5. Log delivery — wrap in try/except since email already sent at this point
+    delivery_id = None
+    try:
+        delivery_result = (
+            supabase_admin.table("deliveries")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "delivery_type": "weekly_digest",
+                    "channel": "email",
+                    "status": "sent",
+                    "payload": {"suggestion_ids": suggestion_ids},
+                    "delivered_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            .execute()
         )
-        .execute()
-    )
-    delivery_row = (delivery_result.data or [{}])[0]
-    delivery_id = delivery_row.get("id")
+        delivery_row = (delivery_result.data or [{}])[0]
+        delivery_id = delivery_row.get("id")
+    except Exception:
+        log.exception("Delivery logging failed for user_id=%s (email was sent successfully)", user_id)
 
     return {
         "sent": True,

@@ -37,6 +37,7 @@ async def generate_outreach_suggestions(
         for contact in contacts:
             company_id = contact.get("company_id")
             if not company_id:
+                log.debug("Skipping contact_id=%s — no company_id linked", contact["id"])
                 continue
 
             signals_result = (
