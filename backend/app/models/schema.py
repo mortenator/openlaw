@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, EmailStr
 
@@ -143,7 +143,8 @@ class SignalOut(BaseModel):
 # ── Outreach Suggestions ───────────────────────────────────────────────────
 
 class OutreachSuggestionUpdate(BaseModel):
-    status: Optional[str] = None  # pending | approved | sent | dismissed
+    # digest_sent is intentionally excluded — only set by the digest service, not by users
+    status: Optional[Literal["pending", "approved", "sent", "dismissed"]] = None
     edited_body: Optional[str] = None
 
 
@@ -155,7 +156,8 @@ class OutreachSuggestionOut(BaseModel):
     subject: str
     body: str
     edited_body: Optional[str]
-    status: str
+    status: Literal["pending", "approved", "sent", "dismissed", "digest_sent"]
+    trigger_summary: Optional[str] = None
     scheduled_at: Optional[datetime]
     sent_at: Optional[datetime]
     created_at: datetime

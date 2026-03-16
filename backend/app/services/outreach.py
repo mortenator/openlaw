@@ -19,7 +19,7 @@ async def generate_outreach_suggestions(
     # Fetch tier 1 and 2 contacts with health_score < 60
     contacts_result = (
         supabase_admin.table("contacts")
-        .select("id, name, role, company_id")
+        .select("id, name, role, company_id, tier, last_contacted_at")
         .eq("user_id", user_id)
         .in_("tier", [1, 2])
         .lt("health_score", 60)
@@ -37,6 +37,7 @@ async def generate_outreach_suggestions(
         for contact in contacts:
             company_id = contact.get("company_id")
             if not company_id:
+                log.debug("Skipping contact_id=%s — no company_id linked", contact["id"])
                 continue
 
             signals_result = (
@@ -52,6 +53,21 @@ async def generate_outreach_suggestions(
                 continue
 
             signal = signals[0]
+
+            # Dedup BEFORE LLM call — avoids burning tokens on already-generated suggestions
+            existing_check = (
+                supabase_admin.table("outreach_suggestions")
+                .select("id")
+                .eq("user_id", user_id)
+                .eq("contact_id", contact["id"])
+                .eq("signal_id", signal["id"])
+                .limit(1)
+                .execute()
+            )
+            if existing_check.data:
+                log.debug("Skipping duplicate suggestion for contact_id=%s signal_id=%s", contact["id"], signal["id"])
+                continue
+
             prompt = (
                 f"You are drafting a warm outreach email for a deal lawyer.\n\n"
                 f"Contact: {contact['name']} ({contact.get('role', 'unknown role')})\n"
@@ -81,6 +97,29 @@ async def generate_outreach_suggestions(
                 )
                 continue
 
+            # Build human-readable trigger summary
+            tier = contact.get("tier", 2)
+            last_contacted_raw = contact.get("last_contacted_at")
+            if last_contacted_raw:
+                if isinstance(last_contacted_raw, str):
+                    last_contacted_dt = datetime.fromisoformat(
+                        last_contacted_raw.replace("Z", "+00:00")
+                    )
+                else:
+                    last_contacted_dt = last_contacted_raw
+                    if last_contacted_dt.tzinfo is None:
+                        last_contacted_dt = last_contacted_dt.replace(tzinfo=timezone.utc)
+                days = (datetime.now(timezone.utc) - last_contacted_dt).days
+            else:
+                days = None  # never contacted
+            if days is None:
+                days_str = "never contacted"
+            else:
+                days_str = f"{days} days since last contact"
+            headline = signal.get('headline', '')
+            headline_snippet = headline[:200] + ("…" if len(headline) > 200 else "")
+            trigger_summary = f"Tier {tier} contact — {days_str}. {headline_snippet}"
+
             try:
                 supabase_admin.table("outreach_suggestions").insert(
                     {
@@ -88,8 +127,9 @@ async def generate_outreach_suggestions(
                         "contact_id": contact["id"],
                         "signal_id": signal["id"],
                         "subject": parsed.get("subject", ""),
-                        "draft_message": parsed.get("draft_message", ""),
+                        "body": parsed.get("draft_message", ""),  # column is 'body' per migrations/001_initial_schema.sql:121
                         "status": "pending",
+                        "trigger_summary": trigger_summary,
                     }
                 ).execute()
                 created += 1

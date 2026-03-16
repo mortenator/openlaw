@@ -2,6 +2,7 @@
 from .health_score import compute_health_score
 from .market_scan import scan_market_for_user as _scan_market_for_user
 from .outreach import generate_outreach_suggestions
+from .digest import compile_and_send_weekly_digest
 
 
 async def recalculate_all_for_user(user_id: str, supabase_admin, **kwargs) -> dict:
@@ -60,6 +61,7 @@ JOB_TYPES = {
     "recalculate_health": recalculate_all_for_user,
     "market_brief": scan_market_for_user,
     "relationship_scan": generate_outreach_suggestions,
+    "weekly_digest": compile_and_send_weekly_digest,
 }
 
 
@@ -78,6 +80,8 @@ async def run_job(
         supabase_admin=supabase_admin,
         settings=settings,
         anthropic_api_key=getattr(settings, "anthropic_api_key", None),
+        resend_api_key=getattr(settings, "resend_api_key", None),
+        from_address=getattr(settings, "resend_from_address", None),  # config.py has default
         cron_id=cron_id,
     )
     return {"job_type": job_type, "user_id": user_id, "result": result}
