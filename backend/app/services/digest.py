@@ -74,6 +74,12 @@ async def compile_and_send_weekly_digest(
     if not user:
         return {"sent": False, "reason": "user_not_found"}
 
+    comms_channel = user.get("comms_channel", "email")
+    if comms_channel != "email":
+        # Only email delivery is supported in MVP; Slack/SMS deferred to v2
+        log.info("Skipping digest for user_id=%s — comms_channel=%r (email only in MVP)", user_id, comms_channel)
+        return {"sent": False, "reason": f"unsupported_channel:{comms_channel}"}
+
     user_email = user.get("email")
     if not user_email:
         return {"sent": False, "reason": "no_email_on_file"}
@@ -140,12 +146,11 @@ async def compile_and_send_weekly_digest(
         log.exception("Resend send failed for user_id=%s", user_id)
         return {"sent": False, "reason": "resend_exception"}
 
-    # 5. Mark included suggestions as digest_sent so they don't re-surface next week
+    # 5. Mark included suggestions as digest_sent so they don't re-surface next week (single bulk update)
     try:
-        for sid in suggestion_ids:
-            supabase_admin.table("outreach_suggestions").update(
-                {"status": "digest_sent"}
-            ).eq("id", sid).execute()
+        supabase_admin.table("outreach_suggestions").update(
+            {"status": "digest_sent"}
+        ).in_("id", suggestion_ids).execute()
     except Exception:
         log.exception("Failed to mark suggestions as digest_sent for user_id=%s", user_id)
 
