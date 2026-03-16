@@ -18,7 +18,7 @@ def _build_html(suggestions: list[dict], date_str: str) -> str:
         name = html.escape(contact.get("name", "Unknown"))
         role = html.escape(contact.get("role") or "Contact")
         reason = html.escape(s.get("trigger_summary") or "Health score dropped below threshold")
-        draft = html.escape(s.get("body", ""))
+        draft = html.escape(s.get("body", "")).replace("\n", "<br>")
         rows.append(
             f"<tr>"
             f"<td style='padding:12px 0;border-bottom:1px solid #eee;'>"
@@ -60,7 +60,7 @@ async def compile_and_send_weekly_digest(
     user_id: str, supabase_admin, resend_api_key: str | None = None, **_kwargs
 ) -> dict:
     if not resend_api_key:
-        raise ValueError("RESEND_API_KEY is not configured — cannot send weekly digest")
+        return {"sent": False, "reason": "resend_api_key_not_configured"}
 
     # 1. Fetch user row
     user_result = (
