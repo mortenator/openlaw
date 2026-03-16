@@ -10,6 +10,21 @@ log = logging.getLogger(__name__)
 _RESEND_URL = "https://api.resend.com/emails"
 
 
+def _log_failed_delivery(supabase_admin, user_id: str, suggestion_ids: list, reason: str) -> None:
+    """Write a failed delivery row so the audit trail is complete even on send errors."""
+    try:
+        supabase_admin.table("deliveries").insert({
+            "user_id": user_id,
+            "delivery_type": "weekly_digest",
+            "channel": "email",
+            "status": "failed",
+            "payload": {"suggestion_ids": suggestion_ids},
+            "error_message": reason,
+        }).execute()
+    except Exception:
+        log.exception("Could not write failed delivery record for user_id=%s", user_id)
+
+
 def _build_html(suggestions: list[dict], date_str: str) -> str:
     rows = []
     for s in suggestions:
@@ -96,8 +111,8 @@ async def compile_and_send_weekly_digest(
         .select("id, body, trigger_summary, contacts(name, role, health_score), signals(headline, created_at)")
         .eq("user_id", user_id)
         .eq("status", "pending")
-        .order("contacts(health_score)", ascending=True, nullsfirst=True)
-        .order("signals(created_at)", ascending=False)
+        .order("contacts(health_score)", desc=False, nullsfirst=True)
+        .order("signals(created_at)", desc=True)
         .limit(5)
         .execute()
     )
@@ -130,13 +145,13 @@ async def compile_and_send_weekly_digest(
             )
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        log.error(
-            "Resend API error for user_id=%s status=%s body=%s",
-            user_id, exc.response.status_code, exc.response.text,
-        )
-        return {"sent": False, "reason": f"resend_error_{exc.response.status_code}"}
+        reason = f"resend_error_{exc.response.status_code}"
+        log.error("Resend API error for user_id=%s status=%s body=%s", user_id, exc.response.status_code, exc.response.text)
+        _log_failed_delivery(supabase_admin, user_id, suggestion_ids, reason)
+        return {"sent": False, "reason": reason}
     except Exception:
         log.exception("Resend send failed for user_id=%s", user_id)
+        _log_failed_delivery(supabase_admin, user_id, suggestion_ids, "resend_exception")
         return {"sent": False, "reason": "resend_exception"}
 
     # 5. Mark included suggestions as digest_sent so they don't re-surface next week (single bulk update)
