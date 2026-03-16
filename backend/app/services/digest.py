@@ -92,7 +92,7 @@ async def compile_and_send_weekly_digest(
     def _sort_key(row: dict):
         contact = row.get("contacts") or {}
         signal = row.get("signals") or {}
-        health = contact.get("health_score") if contact.get("health_score") is not None else 100
+        health = contact.get("health_score") if contact.get("health_score") is not None else 0  # unknown = worst
         created_raw = signal.get("created_at") or ""
         # Negate created_at for DESC: use negative timestamp
         try:
@@ -105,7 +105,8 @@ async def compile_and_send_weekly_digest(
     top5 = rows[:5]
 
     # 3. Compile email
-    date_str = datetime.now(timezone.utc).strftime("%B %-d, %Y")
+    now = datetime.now(timezone.utc)
+    date_str = f"{now.strftime('%B')} {now.day}, {now.year}"  # cross-platform, no %-d
     subject = f"Your weekly relationship brief — {date_str}"
     html_body = _build_html(top5, date_str)
     text_body = _build_text(top5, date_str)
