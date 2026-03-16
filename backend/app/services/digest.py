@@ -192,6 +192,12 @@ async def compile_and_send_weekly_digest(
     except Exception:
         mark_failed = True
         log.exception("Failed to mark suggestions as digest_sent for user_id=%s — duplicate send risk", user_id)
+        log.warning(
+            "DUPLICATE_SEND_RISK: user_id=%s suggestion_ids=%s — "
+            "suggestions still pending, will re-send on next weekly run. "
+            "Remediation: manually set status='digest_sent' for these IDs in Supabase.",
+            user_id, suggestion_ids,
+        )
 
     # 6. Log delivery
     delivery_id = None
