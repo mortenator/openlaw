@@ -106,6 +106,20 @@ async def generate_outreach_suggestions(
                 f"{signal['headline'][:200]}"
             )
 
+            # Dedup: skip if a suggestion for this (contact, signal) pair already exists
+            existing_check = (
+                supabase_admin.table("outreach_suggestions")
+                .select("id")
+                .eq("user_id", user_id)
+                .eq("contact_id", contact["id"])
+                .eq("signal_id", signal["id"])
+                .limit(1)
+                .execute()
+            )
+            if existing_check.data:
+                log.debug("Skipping duplicate suggestion for contact_id=%s signal_id=%s", contact["id"], signal["id"])
+                continue
+
             try:
                 supabase_admin.table("outreach_suggestions").insert(
                     {

@@ -59,6 +59,9 @@ def _build_text(suggestions: list[dict], date_str: str) -> str:
 async def compile_and_send_weekly_digest(
     user_id: str, supabase_admin, resend_api_key: str = "", **_kwargs
 ) -> dict:
+    if not resend_api_key:
+        raise ValueError("RESEND_API_KEY is not configured — cannot send weekly digest")
+
     # 1. Fetch user row
     user_result = (
         supabase_admin.table("users")
