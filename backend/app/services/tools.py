@@ -233,7 +233,6 @@ async def _exec_get_contacts(
         .select("name,role,health_score,tier,last_contacted_at")
         .eq("user_id", user_id)
         .order("health_score", desc=False)
-        .limit(limit)
     )
 
     max_hs = tool_input.get("max_health_score")
@@ -244,7 +243,7 @@ async def _exec_get_contacts(
     if tier is not None:
         query = query.eq("tier", tier)
 
-    result = query.execute()
+    result = query.limit(limit).execute()
     return result.data or []
 
 
@@ -283,14 +282,7 @@ async def _exec_get_signals(
         ]
         if not matching_ids:
             return []
-        query = (
-            supabase_admin.table("signals")
-            .select("headline,type,company_id,source_url,created_at")
-            .eq("user_id", user_id)
-            .in_("company_id", matching_ids)
-            .order("created_at", desc=True)
-            .limit(limit)
-        )
+        query = query.in_("company_id", matching_ids)
 
     signal_type = tool_input.get("signal_type")
     if signal_type:

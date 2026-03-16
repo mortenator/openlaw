@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 _MODEL = "claude-3-5-sonnet-20241022"
 _MAX_TURNS = 8
-_MAX_TOKENS = 2048
+_MAX_TOKENS = 4096
 
 SYSTEM_PROMPT = """You are OpenLaw, an AI chief of staff for deal lawyers. You help with:
 - Research: finding companies, market trends, investment signals
@@ -74,10 +74,14 @@ async def run_agent_loop(
                         continue
 
                     tools_used.append(block.name)
+                    sanitized_input = {
+                        k: v for k, v in block.input.items()
+                        if k not in {"api_key", "token", "secret", "password"}
+                    }
                     log.info(
                         "Tool call: %s input=%s user_id=%s",
                         block.name,
-                        block.input,
+                        sanitized_input,
                         user_id,
                     )
 
