@@ -51,6 +51,8 @@ async def update_outreach_suggestion(
     payload: OutreachSuggestionUpdate,
 ) -> OutreachSuggestionOut:
     data = payload.model_dump(exclude_none=True)
+    if not data:
+        raise HTTPException(status_code=422, detail="No fields to update")
     result = (
         supabase.table("outreach_suggestions")
         .update(data)
