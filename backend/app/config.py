@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_role_key: str
     resend_api_key: str
+    resend_from_address: str = "OpenLaw <briefs@openlaw.ai>"
     brave_api_key: str
     anthropic_api_key: str
     cron_secret: str

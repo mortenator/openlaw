@@ -8,7 +8,6 @@ import httpx
 log = logging.getLogger(__name__)
 
 _RESEND_URL = "https://api.resend.com/emails"
-_FROM_ADDRESS = "OpenLaw <briefs@openlaw.ai>"
 
 
 def _build_html(suggestions: list[dict], date_str: str) -> str:
@@ -57,7 +56,8 @@ def _build_text(suggestions: list[dict], date_str: str) -> str:
 
 
 async def compile_and_send_weekly_digest(
-    user_id: str, supabase_admin, resend_api_key: str | None = None, **_kwargs
+    user_id: str, supabase_admin, resend_api_key: str | None = None,
+    from_address: str = "OpenLaw <briefs@openlaw.ai>", **_kwargs
 ) -> dict:
     if not resend_api_key:
         return {"sent": False, "reason": "resend_api_key_not_configured"}
@@ -128,7 +128,7 @@ async def compile_and_send_weekly_digest(
                 _RESEND_URL,
                 headers={"Authorization": f"Bearer {resend_api_key}"},
                 json={
-                    "from": _FROM_ADDRESS,
+                    "from": from_address,
                     "to": [user_email],
                     "subject": subject,
                     "html": html_body,

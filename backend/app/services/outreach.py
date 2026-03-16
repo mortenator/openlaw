@@ -116,10 +116,9 @@ async def generate_outreach_suggestions(
                 days_str = "never contacted"
             else:
                 days_str = f"{days} days since last contact"
-            trigger_summary = (
-                f"Tier {tier} contact — {days_str}. "
-                f"{signal['headline'][:200]}"
-            )
+            headline = signal['headline']
+            headline_snippet = headline[:200] + ("…" if len(headline) > 200 else "")
+            trigger_summary = f"Tier {tier} contact — {days_str}. {headline_snippet}"
 
             try:
                 supabase_admin.table("outreach_suggestions").insert(

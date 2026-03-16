@@ -81,6 +81,7 @@ async def run_job(
         settings=settings,
         anthropic_api_key=getattr(settings, "anthropic_api_key", None),
         resend_api_key=getattr(settings, "resend_api_key", None),
+        from_address=getattr(settings, "resend_from_address", "OpenLaw <briefs@openlaw.ai>"),
         cron_id=cron_id,
     )
     return {"job_type": job_type, "user_id": user_id, "result": result}
