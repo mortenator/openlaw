@@ -64,6 +64,8 @@ async def compile_and_send_weekly_digest(
     # from_address defaults to config.resend_from_address — no inline default to avoid drift
     if not resend_api_key:
         return {"sent": False, "reason": "resend_api_key_not_configured"}
+    if not from_address:
+        return {"sent": False, "reason": "resend_from_address_not_configured"}
 
     # 1. Fetch user row
     user_result = (
@@ -87,37 +89,22 @@ async def compile_and_send_weekly_digest(
     if not user_email:
         return {"sent": False, "reason": "no_email_on_file"}
 
-    # 2. Fetch pending suggestions with contact + signal data; sort in Python
+    # 2. Fetch top-5 pending suggestions sorted at DB level (worst health first, most recent signal first)
+    # contacts(health_score) ASC = lowest score (worst relationship) surfaces first
     suggestions_result = (
         supabase_admin.table("outreach_suggestions")
         .select("id, body, trigger_summary, contacts(name, role, health_score), signals(headline, created_at)")
         .eq("user_id", user_id)
         .eq("status", "pending")
-        .limit(50)  # bound fetch; we only need top 5 after sort
+        .order("contacts(health_score)", ascending=True, nullsfirst=True)
+        .order("signals(created_at)", ascending=False)
+        .limit(5)
         .execute()
     )
-    rows = suggestions_result.data or []
+    top5 = suggestions_result.data or []
 
-    if not rows:
+    if not top5:
         return {"sent": False, "reason": "no_pending_suggestions"}
-
-    # Sort: health_score ASC (worst first), then signals.created_at DESC (most recent)
-    def _sort_key(row: dict):
-        _contacts = row.get("contacts") or []
-        contact = (_contacts[0] if isinstance(_contacts, list) else _contacts) or {}
-        _signals = row.get("signals") or []
-        signal = (_signals[0] if isinstance(_signals, list) else _signals) or {}
-        health = contact.get("health_score") if contact.get("health_score") is not None else -1  # -1 = unknown, sorts before 0 (worst known score)
-        created_raw = signal.get("created_at") or ""
-        # Negate created_at for DESC: use negative timestamp
-        try:
-            ts = datetime.fromisoformat(created_raw.replace("Z", "+00:00")).timestamp()
-        except (ValueError, AttributeError):
-            ts = 0.0
-        return (health, -ts)
-
-    rows.sort(key=_sort_key)
-    top5 = rows[:5]
 
     # 3. Compile email
     now = datetime.now(timezone.utc)
@@ -134,7 +121,7 @@ async def compile_and_send_weekly_digest(
                 _RESEND_URL,
                 headers={"Authorization": f"Bearer {resend_api_key}"},
                 json={
-                    "from": from_address or "OpenLaw <briefs@openlaw.ai>",
+                    "from": from_address,
                     "to": [user_email],
                     "subject": subject,
                     "html": html_body,

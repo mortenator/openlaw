@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -11,7 +12,7 @@ router = APIRouter(tags=["deliveries"])
 @router.get("/users/{user_id}/outreach-suggestions", response_model=list[OutreachSuggestionOut])
 async def list_outreach_suggestions(
     user_id: uuid.UUID,
-    status: str = Query(default=None),
+    status: Optional[Literal["pending", "approved", "sent", "dismissed", "digest_sent"]] = Query(default=None),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0),
 ) -> list[OutreachSuggestionOut]:
