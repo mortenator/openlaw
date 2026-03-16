@@ -114,11 +114,7 @@ async def compile_and_send_weekly_digest(
     html_body = _build_html(top5, date_str)
     text_body = _build_text(top5, date_str)
 
-    # 4. Send via Resend
-    if not resend_api_key:
-        log.warning("RESEND_API_KEY not set — skipping email send for user_id=%s", user_id)
-        return {"sent": False, "reason": "resend_api_key_not_configured"}
-
+    # 4. Send via Resend (key already validated at function entry)
     suggestion_ids = [str(s["id"]) for s in top5]
     try:
         async with httpx.AsyncClient(timeout=15) as http:
@@ -144,7 +140,16 @@ async def compile_and_send_weekly_digest(
         log.exception("Resend send failed for user_id=%s", user_id)
         return {"sent": False, "reason": "resend_exception"}
 
-    # 5. Log delivery — wrap in try/except since email already sent at this point
+    # 5. Mark included suggestions as digest_sent so they don't re-surface next week
+    try:
+        for sid in suggestion_ids:
+            supabase_admin.table("outreach_suggestions").update(
+                {"status": "digest_sent"}
+            ).eq("id", sid).execute()
+    except Exception:
+        log.exception("Failed to mark suggestions as digest_sent for user_id=%s", user_id)
+
+    # 6. Log delivery — wrap in try/except since email already sent at this point
     delivery_id = None
     try:
         delivery_result = (
