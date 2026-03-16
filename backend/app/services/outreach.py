@@ -127,7 +127,7 @@ async def generate_outreach_suggestions(
                         "contact_id": contact["id"],
                         "signal_id": signal["id"],
                         "subject": parsed.get("subject", ""),
-                        "body": parsed.get("draft_message", ""),
+                        "body": parsed.get("draft_message", ""),  # column is 'body' per migrations/001_initial_schema.sql:121
                         "status": "pending",
                         "trigger_summary": trigger_summary,
                     }

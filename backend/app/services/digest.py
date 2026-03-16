@@ -105,7 +105,7 @@ async def compile_and_send_weekly_digest(
         contact = (_contacts[0] if isinstance(_contacts, list) else _contacts) or {}
         _signals = row.get("signals") or []
         signal = (_signals[0] if isinstance(_signals, list) else _signals) or {}
-        health = contact.get("health_score") if contact.get("health_score") is not None else 0  # unknown = worst
+        health = contact.get("health_score") if contact.get("health_score") is not None else -1  # -1 = unknown, sorts before 0 (worst known score)
         created_raw = signal.get("created_at") or ""
         # Negate created_at for DESC: use negative timestamp
         try:
@@ -155,7 +155,7 @@ async def compile_and_send_weekly_digest(
     try:
         supabase_admin.table("outreach_suggestions").update(
             {"status": "digest_sent"}
-        ).in_("id", suggestion_ids).execute()
+        ).in_("id", suggestion_ids).eq("user_id", user_id).execute()
     except Exception:
         mark_failed = True
         log.exception("Failed to mark suggestions as digest_sent for user_id=%s — duplicate send risk on next run", user_id)
