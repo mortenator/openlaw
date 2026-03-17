@@ -261,7 +261,7 @@ export default function CronsPage() {
               {crons.map((cron) => (
                 <tr key={cron.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{cron.name}</td>
-                  <td className="px-4 py-3 font-mono text-gray-600 text-xs">{cron.schedule}</td>
+                  <td className="px-4 py-3 font-mono text-gray-600 text-xs">{cron.cron_expression}</td>
                   <td className="px-4 py-3 text-gray-600">{cron.job_type}</td>
                   <td className="px-4 py-3 text-gray-500">{formatDate(cron.last_run_at)}</td>
                   <td className="px-4 py-3">

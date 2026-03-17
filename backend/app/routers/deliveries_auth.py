@@ -12,7 +12,7 @@ router = APIRouter(prefix="/deliveries", tags=["deliveries"])
 async def list_deliveries(
     current_user=Depends(get_current_user),
     limit: int = Query(default=50, le=200),
-    offset: int = Query(default=0),
+    offset: int = Query(default=0, ge=0),
 ) -> list[DeliveryOut]:
     result = (
         supabase.table("deliveries")

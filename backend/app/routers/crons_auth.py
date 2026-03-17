@@ -2,7 +2,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import supabase
 from app.deps import get_current_user
@@ -14,11 +14,15 @@ class CronToggle(BaseModel):
     is_active: bool
 
 
+class CronConfig(BaseModel):
+    keywords: list[str] = []
+
+
 class CronCreate(BaseModel):
-    name: str
+    name: str = Field(..., max_length=200)
     job_type: str
-    cron_expression: str
-    config: Optional[dict] = None
+    cron_expression: str = Field(..., max_length=100)
+    config: Optional[CronConfig] = None
     is_active: bool = True
 
 

@@ -33,7 +33,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Legacy user-scoped routes
+# Legacy user-scoped routes (no path collision with auth routes — different URL patterns)
+# deliveries.router: /users/{id}/deliveries, /users/{id}/outreach-suggestions
+# Kept for backward compat; auth-based equivalents are in deliveries_auth + suggestions routers
 app.include_router(deliveries.router)
 
 # Auth-based routes (Bearer token)

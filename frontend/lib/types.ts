@@ -72,7 +72,7 @@ export interface UserCron {
   id: string
   user_id: string
   name: string
-  schedule: string
+  cron_expression: string
   job_type: string
   is_active: boolean
   last_run_at: string | null
