@@ -7,3 +7,6 @@ def get_supabase_client() -> Client:
 
 
 supabase: Client = get_supabase_client()
+
+# Alias for clarity — the default client already uses the service role key.
+supabase_admin: Client = supabase

@@ -1,19 +1,10 @@
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Node
 node_modules/
-frontend/.next/
-frontend/out/
-
-# Python
-__pycache__/
-*.pyc
-.venv/
+frontend/node_modules/
+.env
+backend/.env
 backend/.venv/
-
-# Misc
-.DS_Store
-*.log
+*.pyc
+__pycache__/
+frontend/.env
+frontend/.env.local
+frontend/.env*.local
