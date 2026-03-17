@@ -34,12 +34,12 @@ export default function DashboardPage() {
       ]).then(([s, sig, contacts]) => {
         setSuggestions(s)
         setSignals(sig.slice(0, 5))
-        const needAttention = contacts.filter(
+        const atRisk = contacts.filter(
           (c) => (c.health_score ?? 100) < 40 && (c.tier === 1 || c.tier === 2)
         )
-        setAtRiskCount(needAttention.length)
-        const sorted = [...contacts]
-          .sort((a, b) => (a.health_score ?? 0) - (b.health_score ?? 0))
+        setAtRiskCount(atRisk.length)
+        const sorted = atRisk
+          .sort((a, b) => (a.health_score ?? 100) - (b.health_score ?? 100))
           .slice(0, 5)
         setAtRiskContacts(sorted)
         setLoading(false)
