@@ -17,6 +17,7 @@ _CRON_PATTERN = re.compile(
 
 log = logging.getLogger(__name__)
 
+_BRAVE_WEB_URL = "https://api.search.brave.com/res/v1/web/search"
 _BRAVE_NEWS_URL = "https://api.search.brave.com/res/v1/news/search"
 
 # ── Tool Schemas ──────────────────────────────────────────────────────────
@@ -25,7 +26,7 @@ TOOL_SCHEMAS = [
     {
         "name": "web_search",
         "description": (
-            "Search the web for news, company information, market signals, "
+            "Search the web for company information, market signals, news, "
             "or research. Returns up to 5 results with title, URL, and snippet."
         ),
         "input_schema": {
@@ -164,11 +165,13 @@ async def _exec_web_search(tool_input: dict, *, brave_api_key: str, **_kw) -> An
 
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(_BRAVE_NEWS_URL, headers=headers, params=params)
+            # Use web search for general research; falls back gracefully if no results
+            resp = await client.get(_BRAVE_WEB_URL, headers=headers, params=params)
             resp.raise_for_status()
             data = resp.json()
 
-        results = data.get("results", [])
+        # Web search returns results under "web.results"; news returns "results"
+        results = data.get("web", {}).get("results", data.get("results", []))
         return [
             {
                 "title": r.get("title", ""),

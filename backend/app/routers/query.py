@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 log = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/query", tags=["query"])
 
 
 class QueryRequest(BaseModel):
-    message: str
+    message: str = Field(..., min_length=1, max_length=4000)
 
 
 def _build_user_context(configs: list[dict]) -> str:
