@@ -275,6 +275,34 @@ class TestWebSearchExecutor:
 
         assert "error" in result
 
+    @pytest.mark.asyncio
+    async def test_returns_web_results_format(self):
+        """Test primary Brave web search response format (web.results nested key)."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "web": {
+                "results": [
+                    {"title": "Web Result 1", "url": "https://example.com/w1", "description": "Web snippet"},
+                ]
+            }
+        }
+        with patch("app.services.tools.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_cls.return_value = mock_client
+            result = await execute_tool(
+                tool_name="web_search",
+                tool_input={"query": "Acme Corp funding"},
+                user_id="user-1",
+                supabase_admin=MagicMock(),
+                brave_api_key="test-key",
+            )
+        assert len(result) == 1
+        assert result[0]["title"] == "Web Result 1"
+
 
 class TestUnknownTool:
     @pytest.mark.asyncio
@@ -350,33 +378,3 @@ class TestGetSignalsExecutor:
         )
         assert result == []
 
-    @pytest.mark.asyncio
-    async def test_returns_web_results_format(self):
-        """Test the primary Brave web search response format (web.results)."""
-        mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {
-            "web": {
-                "results": [
-                    {"title": "Web Result 1", "url": "https://example.com/w1", "description": "Web snippet"},
-                ]
-            }
-        }
-
-        with patch("app.services.tools.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.get = AsyncMock(return_value=mock_response)
-            mock_client_cls.return_value = mock_client
-
-            result = await execute_tool(
-                tool_name="web_search",
-                tool_input={"query": "Acme Corp funding"},
-                user_id="user-1",
-                supabase_admin=MagicMock(),
-                brave_api_key="test-key",
-            )
-
-        assert len(result) == 1
-        assert result[0]["title"] == "Web Result 1"

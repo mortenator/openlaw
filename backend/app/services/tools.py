@@ -6,13 +6,10 @@ from typing import Any
 
 import httpx
 
-# Basic cron expression pattern: 5 fields (min hour dom month dow)
+# Cron expression: 5 fields, supports *, ranges, lists, steps (e.g. */5, 1-5/2)
+_CRON_FIELD = r'(\*|[0-9,\-]+|\*/[0-9]+|[0-9]+/[0-9]+|[0-9]+-[0-9]+/[0-9]+)'
 _CRON_PATTERN = re.compile(
-    r'^(\*|[0-9,\-/]+)\s+'  # minute
-    r'(\*|[0-9,\-/]+)\s+'  # hour
-    r'(\*|[0-9,\-/]+)\s+'  # day-of-month
-    r'(\*|[0-9,\-/]+)\s+'  # month
-    r'(\*|[0-9,\-/]+)$'    # day-of-week
+    rf'^{_CRON_FIELD}\s+{_CRON_FIELD}\s+{_CRON_FIELD}\s+{_CRON_FIELD}\s+{_CRON_FIELD}$'
 )
 
 log = logging.getLogger(__name__)
