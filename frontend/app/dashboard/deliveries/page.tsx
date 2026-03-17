@@ -16,17 +16,54 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleString()
 }
 
-function getSuggestionCount(payload: Record<string, unknown> | null): string {
-  if (!payload) return '—'
-  const ids = payload.suggestion_ids
-  if (Array.isArray(ids)) return String(ids.length)
-  return '—'
+function PayloadModal({
+  delivery,
+  onClose,
+}: {
+  delivery: Delivery
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-lg w-full max-w-lg max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-bold text-gray-900">Delivery Payload</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-sm"
+          >
+            Close
+          </button>
+        </div>
+        <div className="p-6 overflow-y-auto flex-1">
+          <div className="mb-3 flex items-center gap-2">
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                STATUS_BADGE[delivery.status] ?? STATUS_BADGE.pending
+              }`}
+            >
+              {delivery.status}
+            </span>
+            <span className="text-sm text-gray-500">{delivery.delivery_type}</span>
+          </div>
+          {delivery.error_message && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {delivery.error_message}
+            </div>
+          )}
+          <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs text-gray-700 overflow-x-auto whitespace-pre-wrap">
+            {delivery.payload ? JSON.stringify(delivery.payload, null, 2) : 'No payload'}
+          </pre>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function DeliveriesPage() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([])
   const [loading, setLoading] = useState(true)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [viewingDelivery, setViewingDelivery] = useState<Delivery | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -41,13 +78,16 @@ export default function DeliveriesPage() {
     })
   }, [])
 
-  function toggleRow(id: string) {
-    setExpandedId((prev) => (prev === id ? null : id))
-  }
-
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Deliveries</h1>
+
+      {viewingDelivery && (
+        <PayloadModal
+          delivery={viewingDelivery}
+          onClose={() => setViewingDelivery(null)}
+        />
+      )}
 
       {loading ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 animate-pulse">
@@ -65,39 +105,30 @@ export default function DeliveriesPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Type</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Delivered At</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500"># Suggestions</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-500"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {deliveries.map((d) => (
-                <tr key={d.id} className="group">
-                  <td colSpan={4} className="p-0">
-                    <div
-                      onClick={d.status === 'failed' ? () => toggleRow(d.id) : undefined}
-                      className={`w-full text-left grid grid-cols-4 px-4 py-3 ${
-                        d.status === 'failed' ? 'cursor-pointer hover:bg-gray-50' : ''
+                <tr key={d.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-gray-700">{d.delivery_type}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        STATUS_BADGE[d.status] ?? STATUS_BADGE.pending
                       }`}
                     >
-                      <span className="text-gray-700">{d.delivery_type}</span>
-                      <span>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            STATUS_BADGE[d.status] ?? STATUS_BADGE.pending
-                          }`}
-                        >
-                          {d.status}
-                        </span>
-                      </span>
-                      <span className="text-gray-500">{formatDate(d.delivered_at)}</span>
-                      <span className="text-gray-500">{getSuggestionCount(d.payload)}</span>
-                    </div>
-                    {expandedId === d.id && d.status === 'failed' && (
-                      <div className="px-4 pb-3">
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                          {d.error_message ?? 'Delivery failed — no error details available.'}
-                        </div>
-                      </div>
-                    )}
+                      {d.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">{formatDate(d.delivered_at)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => setViewingDelivery(d)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      View
+                    </button>
                   </td>
                 </tr>
               ))}

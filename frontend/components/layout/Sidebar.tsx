@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
 
 const NAV_LINKS = [
-  { href: '/dashboard', label: 'Today' },
+  { href: '/dashboard', label: 'Home' },
   { href: '/dashboard/contacts', label: 'Contacts' },
   { href: '/dashboard/companies', label: 'Companies' },
   { href: '/dashboard/signals', label: 'Signals' },

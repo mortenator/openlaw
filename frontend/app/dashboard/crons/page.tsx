@@ -15,7 +15,7 @@ const SCHEDULE_PRESETS = [
   { label: 'Daily at 8am', value: '0 8 * * *' },
   { label: 'Weekly Friday 8am', value: '0 8 * * 5' },
   { label: 'Weekly Monday 8am', value: '0 8 * * 1' },
-  { label: 'Monthly 1st 8am', value: '0 8 1 * *' },
+  { label: 'Every 2 hours', value: '0 */2 * * *' },
 ] as const
 
 interface CreateFormState {
