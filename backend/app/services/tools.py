@@ -271,9 +271,9 @@ async def _exec_get_signals(
         .eq("user_id", user_id)
         .in_("company_id", company_ids)
         .order("created_at", desc=True)
-        .limit(limit)
     )
 
+    # Apply filters before limit so we don't cut the result set prematurely
     company_name = tool_input.get("company_name")
     if company_name:
         matching_ids = [
@@ -288,7 +288,7 @@ async def _exec_get_signals(
     if signal_type:
         query = query.eq("type", signal_type)
 
-    result = query.execute()
+    result = query.limit(limit).execute()
     return [
         {
             "headline": s.get("headline", ""),

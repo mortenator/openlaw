@@ -1,0 +1,4 @@
+{
+  "/onboarding/confirm/page": "app/onboarding/confirm/page.js",
+  "/onboarding/card/page": "app/onboarding/card/page.js"
+}

@@ -1,5 +1,9 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+log = logging.getLogger(__name__)
 
 from app.config import settings
 from app.database import supabase, supabase_admin
@@ -54,6 +58,7 @@ async def query(payload: QueryRequest, current_user=Depends(get_current_user)) -
             user_context=user_context,
         )
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Agent loop error: {exc}")
+        log.exception("Agent loop failed for user_id=%s", current_user.id)
+        raise HTTPException(status_code=502, detail="Agent error — please try again")
 
     return result
