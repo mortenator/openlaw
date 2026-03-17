@@ -17,9 +17,9 @@ class CronToggle(BaseModel):
 class CronCreate(BaseModel):
     name: str
     job_type: str
-    schedule: str
+    cron_expression: str
     config: Optional[dict] = None
-    is_enabled: bool = True
+    is_active: bool = True
 
 
 @router.get("")

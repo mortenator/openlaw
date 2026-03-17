@@ -2,12 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import (
-    companies,
-    contacts,
-    crons,
     deliveries,
-    signals,
-    users,
 )
 from app.routers import (
     agent_configs,
@@ -39,11 +34,6 @@ app.add_middleware(
 )
 
 # Legacy user-scoped routes
-app.include_router(users.router)
-app.include_router(contacts.router)
-app.include_router(companies.router)
-app.include_router(signals.router)
-app.include_router(crons.router)
 app.include_router(deliveries.router)
 
 # Auth-based routes (Bearer token)
