@@ -2,6 +2,7 @@ import type {
   AgentConfig,
   Company,
   Contact,
+  Delivery,
   OutreachSuggestion,
   Signal,
   UserCron,
@@ -67,11 +68,30 @@ export const api = {
   },
   crons: {
     list: (token: string) => apiFetch<UserCron[]>(token, '/crons'),
+    create: (
+      token: string,
+      userId: string,
+      data: {
+        name: string
+        job_type: string
+        cron_expression: string
+        config: { keywords: string[] }
+        is_active: boolean
+      }
+    ) =>
+      apiFetch<UserCron>(token, `/users/${userId}/crons`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     toggle: (token: string, id: string, isEnabled: boolean) =>
       apiFetch<UserCron>(token, `/crons/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ is_enabled: isEnabled }),
       }),
+  },
+  deliveries: {
+    list: (token: string, userId: string) =>
+      apiFetch<Delivery[]>(token, `/users/${userId}/deliveries`),
   },
   query: {
     send: (token: string, message: string) =>
