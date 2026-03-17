@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import type { OutreachSuggestion, Signal, Contact } from '@/lib/types'
+import { HealthBadge } from '@/components/HealthBadge'
 
 const SIGNAL_COLORS: Record<string, string> = {
   new_gc: 'bg-purple-100 text-purple-700',
@@ -11,21 +12,6 @@ const SIGNAL_COLORS: Record<string, string> = {
   investment: 'bg-green-100 text-green-700',
   competitor_move: 'bg-red-100 text-red-700',
   general_news: 'bg-gray-100 text-gray-700',
-}
-
-function HealthBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-gray-400 text-sm">—</span>
-  const cls =
-    score < 40
-      ? 'bg-red-100 text-red-700'
-      : score <= 70
-      ? 'bg-yellow-100 text-yellow-700'
-      : 'bg-green-100 text-green-700'
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      {score}
-    </span>
-  )
 }
 
 export default function DashboardPage() {
@@ -97,7 +83,7 @@ export default function DashboardPage() {
                     <div className="text-xs italic text-gray-400 mt-0.5">{s.trigger_summary}</div>
                   )}
                   {s.contact?.company && (
-                    <div className="text-xs text-gray-500 mb-1">{(s.contact as any).company?.name}</div>
+                    <div className="text-xs text-gray-500 mb-1">{s.contact.company.name}</div>
                   )}
                   {s.subject && (
                     <div className="text-xs font-medium text-gray-700 mt-1">{s.subject}</div>

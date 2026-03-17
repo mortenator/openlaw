@@ -5,21 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import type { Contact } from '@/lib/types'
-
-function HealthBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-gray-400">—</span>
-  const cls =
-    score < 40
-      ? 'bg-red-100 text-red-700'
-      : score <= 70
-      ? 'bg-yellow-100 text-yellow-700'
-      : 'bg-green-100 text-green-700'
-  return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${cls}`}>
-      {score} / 100
-    </span>
-  )
-}
+import { HealthBadge } from '@/components/HealthBadge'
 
 export default function ContactDetailPage({ params }: { params: { id: string } }) {
   const [token, setToken] = useState<string | null>(null)
@@ -56,9 +42,12 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
     })
   }, [params.id])
 
+  const [saveError, setSaveError] = useState('')
+
   async function handleSave() {
     if (!token) return
     setSaving(true)
+    setSaveError('')
     try {
       const updated = await api.contacts.update(token, params.id, {
         ...form,
@@ -68,6 +57,8 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
       setContact(updated)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save contact')
     } finally {
       setSaving(false)
     }
@@ -145,6 +136,12 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none"
           />
         </div>
+
+        {saveError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {saveError}
+          </div>
+        )}
 
         <button
           onClick={handleSave}

@@ -5,21 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import type { Contact } from '@/lib/types'
-
-function HealthBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-gray-400">—</span>
-  const cls =
-    score < 40
-      ? 'bg-red-100 text-red-700'
-      : score <= 70
-      ? 'bg-yellow-100 text-yellow-700'
-      : 'bg-green-100 text-green-700'
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      {score}
-    </span>
-  )
-}
+import { HealthBadge } from '@/components/HealthBadge'
 
 function TierBadge({ tier }: { tier: number }) {
   const colors = ['', 'bg-purple-100 text-purple-700', 'bg-blue-100 text-blue-700', 'bg-gray-100 text-gray-700']
@@ -59,12 +45,19 @@ export default function ContactsPage() {
     c.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  const [createError, setCreateError] = useState('')
+
   async function handleCreate() {
     if (!token) return
-    const created = await api.contacts.create(token, form)
-    setContacts((prev) => [...prev, created])
-    setShowModal(false)
-    setForm({ name: '', role: '', email: '', tier: 2 })
+    setCreateError('')
+    try {
+      const created = await api.contacts.create(token, form)
+      setContacts((prev) => [...prev, created])
+      setShowModal(false)
+      setForm({ name: '', role: '', email: '', tier: 2 })
+    } catch (err: unknown) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create contact')
+    }
   }
 
   return (
@@ -142,6 +135,11 @@ export default function ContactsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
             <h2 className="text-lg font-semibold mb-4">Add Contact</h2>
+            {createError && (
+              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                {createError}
+              </div>
+            )}
             <div className="space-y-3">
               <input
                 placeholder="Name *"

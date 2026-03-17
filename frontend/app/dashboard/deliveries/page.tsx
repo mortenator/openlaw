@@ -72,10 +72,10 @@ export default function DeliveriesPage() {
               {deliveries.map((d) => (
                 <tr key={d.id} className="group">
                   <td colSpan={4} className="p-0">
-                    <button
-                      onClick={() => d.status === 'failed' && toggleRow(d.id)}
-                      className={`w-full text-left grid grid-cols-4 px-4 py-3 hover:bg-gray-50 ${
-                        d.status === 'failed' ? 'cursor-pointer' : 'cursor-default'
+                    <div
+                      onClick={d.status === 'failed' ? () => toggleRow(d.id) : undefined}
+                      className={`w-full text-left grid grid-cols-4 px-4 py-3 ${
+                        d.status === 'failed' ? 'cursor-pointer hover:bg-gray-50' : ''
                       }`}
                     >
                       <span className="text-gray-700">{d.delivery_type}</span>
@@ -90,7 +90,7 @@ export default function DeliveriesPage() {
                       </span>
                       <span className="text-gray-500">{formatDate(d.delivered_at)}</span>
                       <span className="text-gray-500">{getSuggestionCount(d.payload)}</span>
-                    </button>
+                    </div>
                     {expandedId === d.id && d.status === 'failed' && d.error_message && (
                       <div className="px-4 pb-3">
                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

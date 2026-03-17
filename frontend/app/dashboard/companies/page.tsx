@@ -27,15 +27,22 @@ export default function CompaniesPage() {
 
   const filtered = watchlistOnly ? companies.filter((c) => c.is_watchlist) : companies
 
+  const [createError, setCreateError] = useState('')
+
   async function handleCreate() {
     if (!token) return
-    const created = await api.companies.create(token, {
-      ...form,
-      tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
-    })
-    setCompanies((prev) => [...prev, created])
-    setShowForm(false)
-    setForm({ name: '', industry: '', tags: '', is_watchlist: false })
+    setCreateError('')
+    try {
+      const created = await api.companies.create(token, {
+        ...form,
+        tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
+      })
+      setCompanies((prev) => [...prev, created])
+      setShowForm(false)
+      setForm({ name: '', industry: '', tags: '', is_watchlist: false })
+    } catch (err: unknown) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create company')
+    }
   }
 
   return (
@@ -65,6 +72,12 @@ export default function CompaniesPage() {
           </button>
         </div>
       </div>
+
+      {createError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {createError}
+        </div>
+      )}
 
       {showForm && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex gap-3 flex-wrap">

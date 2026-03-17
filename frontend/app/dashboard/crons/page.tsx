@@ -74,9 +74,9 @@ function CreateCronModal({
       const created = await api.crons.create(token, userId, {
         name: form.name.trim(),
         job_type: form.job_type,
-        cron_expression: form.cron_expression,
+        schedule: form.cron_expression,
         config: { keywords },
-        is_active: true,
+        is_enabled: true,
       })
       onCreated(created)
     } catch (err: unknown) {
