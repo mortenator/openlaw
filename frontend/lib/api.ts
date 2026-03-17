@@ -80,7 +80,6 @@ export const api = {
     list: (token: string) => apiFetch<UserCron[]>(token, '/crons'),
     create: (
       token: string,
-      userId: string,
       data: {
         name: string
         job_type: string
@@ -89,7 +88,7 @@ export const api = {
         is_enabled: boolean
       }
     ) =>
-      apiFetch<UserCron>(token, `/users/${userId}/crons`, {
+      apiFetch<UserCron>(token, '/crons', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -100,8 +99,7 @@ export const api = {
       }),
   },
   deliveries: {
-    list: (token: string, userId: string) =>
-      apiFetch<Delivery[]>(token, `/users/${userId}/deliveries`),
+    list: (token: string) => apiFetch<Delivery[]>(token, '/deliveries'),
   },
   query: {
     send: (token: string, message: string) =>

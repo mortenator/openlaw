@@ -32,7 +32,7 @@ export default function DeliveriesPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) return
       api.deliveries
-        .list(session.access_token, session.user.id)
+        .list(session.access_token)
         .then((data) => {
           setDeliveries(data)
           setLoading(false)
@@ -91,10 +91,10 @@ export default function DeliveriesPage() {
                       <span className="text-gray-500">{formatDate(d.delivered_at)}</span>
                       <span className="text-gray-500">{getSuggestionCount(d.payload)}</span>
                     </div>
-                    {expandedId === d.id && d.status === 'failed' && d.error_message && (
+                    {expandedId === d.id && d.status === 'failed' && (
                       <div className="px-4 pb-3">
                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                          {d.error_message}
+                          {d.error_message ?? 'Delivery failed — no error details available.'}
                         </div>
                       </div>
                     )}

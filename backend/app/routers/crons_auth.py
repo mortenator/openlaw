@@ -1,4 +1,6 @@
 """Token-based crons endpoints."""
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -12,6 +14,14 @@ class CronToggle(BaseModel):
     is_active: bool
 
 
+class CronCreate(BaseModel):
+    name: str
+    job_type: str
+    schedule: str
+    config: Optional[dict] = None
+    is_enabled: bool = True
+
+
 @router.get("")
 async def list_crons(current_user=Depends(get_current_user)) -> list[dict]:
     result = (
@@ -21,6 +31,19 @@ async def list_crons(current_user=Depends(get_current_user)) -> list[dict]:
         .execute()
     )
     return result.data or []
+
+
+@router.post("")
+async def create_cron(
+    payload: CronCreate,
+    current_user=Depends(get_current_user),
+) -> dict:
+    data = payload.model_dump()
+    data["user_id"] = current_user.id
+    result = supabase.table("user_crons").insert(data).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create cron")
+    return result.data[0]
 
 
 @router.put("/{cron_id}")

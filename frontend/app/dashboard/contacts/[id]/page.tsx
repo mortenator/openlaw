@@ -20,6 +20,7 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -38,6 +39,8 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
             : '',
           notes: c.notes ?? '',
         })
+      }).catch((err: unknown) => {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load contact')
       })
     })
   }, [params.id])
@@ -62,6 +65,10 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
     } finally {
       setSaving(false)
     }
+  }
+
+  if (loadError) {
+    return <div className="text-red-600 text-sm">{loadError}</div>
   }
 
   if (!contact) {

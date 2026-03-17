@@ -15,6 +15,7 @@ from app.routers import (
     companies_auth,
     contacts_auth,
     crons_auth,
+    deliveries_auth,
     internal,
     jobs,
     onboarding,
@@ -55,6 +56,7 @@ app.include_router(contacts_auth.router)
 app.include_router(companies_auth.router)
 app.include_router(signals_auth.router)
 app.include_router(crons_auth.router)
+app.include_router(deliveries_auth.router)
 app.include_router(onboarding.router)
 app.include_router(internal.router)
 

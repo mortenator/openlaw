@@ -44,8 +44,10 @@ export default function DashboardPage() {
 
   function dismiss(id: string) {
     if (!token) return
-    api.suggestions.update(token, id, 'dismissed').then(() => {
-      setSuggestions((prev) => prev.filter((s) => s.id !== id))
+    const previous = suggestions
+    setSuggestions((prev) => prev.filter((s) => s.id !== id))
+    api.suggestions.update(token, id, 'dismissed').catch(() => {
+      setSuggestions(previous)
     })
   }
 
@@ -124,7 +126,7 @@ export default function DashboardPage() {
                       SIGNAL_COLORS[sig.type] ?? SIGNAL_COLORS.general_news
                     }`}
                   >
-                    {sig.type.replace('_', ' ')}
+                    {sig.type.replace(/_/g, ' ')}
                   </span>
                   {sig.source_url ? (
                     <a

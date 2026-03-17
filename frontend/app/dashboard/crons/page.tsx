@@ -41,12 +41,10 @@ function CreateCronModal({
   onClose,
   onCreated,
   token,
-  userId,
 }: {
   onClose: () => void
   onCreated: (cron: UserCron) => void
   token: string
-  userId: string
 }) {
   const [form, setForm] = useState<CreateFormState>(INITIAL_FORM)
   const [submitting, setSubmitting] = useState(false)
@@ -71,7 +69,7 @@ function CreateCronModal({
               .map((k) => k.trim())
               .filter(Boolean)
           : []
-      const created = await api.crons.create(token, userId, {
+      const created = await api.crons.create(token, {
         name: form.name.trim(),
         job_type: form.job_type,
         schedule: form.cron_expression,
@@ -81,6 +79,7 @@ function CreateCronModal({
       onCreated(created)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create cron')
+    } finally {
       setSubmitting(false)
     }
   }
@@ -182,7 +181,6 @@ function CreateCronModal({
 
 export default function CronsPage() {
   const [token, setToken] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
   const [crons, setCrons] = useState<UserCron[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -192,7 +190,6 @@ export default function CronsPage() {
       if (!session) return
       const t = session.access_token
       setToken(t)
-      setUserId(session.user.id)
       api.crons
         .list(t)
         .then((data) => {
@@ -205,8 +202,14 @@ export default function CronsPage() {
 
   async function handleToggle(cron: UserCron) {
     if (!token) return
-    const updated = await api.crons.toggle(token, cron.id, !cron.is_enabled)
-    setCrons((prev) => prev.map((c) => (c.id === cron.id ? updated : c)))
+    const previous = crons
+    setCrons((prev) => prev.map((c) => (c.id === cron.id ? { ...c, is_enabled: !c.is_enabled } : c)))
+    try {
+      const updated = await api.crons.toggle(token, cron.id, !cron.is_enabled)
+      setCrons((prev) => prev.map((c) => (c.id === cron.id ? updated : c)))
+    } catch {
+      setCrons(previous)
+    }
   }
 
   function handleCreated(cron: UserCron) {
@@ -226,12 +229,11 @@ export default function CronsPage() {
         </button>
       </div>
 
-      {showCreate && token && userId && (
+      {showCreate && token && (
         <CreateCronModal
           onClose={() => setShowCreate(false)}
           onCreated={handleCreated}
           token={token}
-          userId={userId}
         />
       )}
 
