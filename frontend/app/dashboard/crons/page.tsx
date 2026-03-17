@@ -72,9 +72,9 @@ function CreateCronModal({
       const created = await api.crons.create(token, {
         name: form.name.trim(),
         job_type: form.job_type,
-        schedule: form.cron_expression,
+        cron_expression: form.cron_expression,
         config: { keywords },
-        is_enabled: true,
+        is_active: true,
       })
       onCreated(created)
     } catch (err: unknown) {
@@ -203,9 +203,9 @@ export default function CronsPage() {
   async function handleToggle(cron: UserCron) {
     if (!token) return
     const previous = crons
-    setCrons((prev) => prev.map((c) => (c.id === cron.id ? { ...c, is_enabled: !c.is_enabled } : c)))
+    setCrons((prev) => prev.map((c) => (c.id === cron.id ? { ...c, is_active: !c.is_active } : c)))
     try {
-      const updated = await api.crons.toggle(token, cron.id, !cron.is_enabled)
+      const updated = await api.crons.toggle(token, cron.id, !cron.is_active)
       setCrons((prev) => prev.map((c) => (c.id === cron.id ? updated : c)))
     } catch {
       setCrons(previous)
@@ -268,12 +268,12 @@ export default function CronsPage() {
                     <button
                       onClick={() => handleToggle(cron)}
                       className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                        cron.is_enabled ? 'bg-blue-600' : 'bg-gray-200'
+                        cron.is_active ? 'bg-blue-600' : 'bg-gray-200'
                       }`}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                          cron.is_enabled ? 'translate-x-5' : 'translate-x-0'
+                          cron.is_active ? 'translate-x-5' : 'translate-x-0'
                         }`}
                       />
                     </button>

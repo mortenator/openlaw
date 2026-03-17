@@ -83,9 +83,9 @@ export const api = {
       data: {
         name: string
         job_type: string
-        schedule: string
+        cron_expression: string
         config: { keywords: string[] }
-        is_enabled: boolean
+        is_active: boolean
       }
     ) =>
       apiFetch<UserCron>(token, '/crons', {
@@ -95,7 +95,7 @@ export const api = {
     toggle: (token: string, id: string, isEnabled: boolean) =>
       apiFetch<UserCron>(token, `/crons/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ is_enabled: isEnabled }),
+        body: JSON.stringify({ is_active: isEnabled }),
       }),
   },
   deliveries: {

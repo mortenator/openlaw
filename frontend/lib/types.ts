@@ -74,7 +74,7 @@ export interface UserCron {
   name: string
   schedule: string
   job_type: string
-  is_enabled: boolean
+  is_active: boolean
   last_run_at: string | null
   created_at: string
 }
