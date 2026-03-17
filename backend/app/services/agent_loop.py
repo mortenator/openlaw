@@ -7,6 +7,7 @@ from typing import Any
 
 import anthropic
 
+from app.config import settings
 from .tools import TOOL_SCHEMAS, execute_tool
 
 # NOTE: supabase-py uses a synchronous client (blocking I/O). Tool executors call it
@@ -16,7 +17,7 @@ from .tools import TOOL_SCHEMAS, execute_tool
 
 log = logging.getLogger(__name__)
 
-_MODEL = "claude-3-5-sonnet-20241022"
+_MODEL = settings.anthropic_model  # configured via ANTHROPIC_MODEL env var, defaults to claude-3-5-sonnet-20241022
 _MAX_TURNS = 8
 _MAX_TOKENS = 4096
 

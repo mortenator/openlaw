@@ -262,7 +262,7 @@ async def _exec_create_cron(
 async def _exec_get_contacts(
     tool_input: dict, *, user_id: str, supabase_admin, **_kw
 ) -> Any:
-    limit = tool_input.get("limit", 10)
+    limit = min(tool_input.get("limit", 10), 100)
     query = (
         supabase_admin.table("contacts")
         .select("name,role,health_score,tier,last_contacted_at")
@@ -285,7 +285,7 @@ async def _exec_get_contacts(
 async def _exec_get_signals(
     tool_input: dict, *, user_id: str, supabase_admin, **_kw
 ) -> Any:
-    limit = tool_input.get("limit", 10)
+    limit = min(tool_input.get("limit", 10), 100)
 
     # Fetch user's companies for join lookup
     companies_result = (
