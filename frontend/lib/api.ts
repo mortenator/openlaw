@@ -75,7 +75,7 @@ export const api = {
   },
   query: {
     send: (token: string, message: string) =>
-      apiFetch<{ response: string }>(token, '/query', {
+      apiFetch<{ response: string; tools_used: string[]; turns: number }>(token, '/query', {
         method: 'POST',
         body: JSON.stringify({ message }),
       }),

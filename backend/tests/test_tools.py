@@ -285,3 +285,65 @@ class TestUnknownTool:
             brave_api_key="",
         )
         assert result == {"error": "Unknown tool: nonexistent"}
+
+
+class TestGetSignalsExecutor:
+    @pytest.mark.asyncio
+    async def test_returns_signals_for_user(self):
+        sb = MagicMock()
+        companies_chain = MagicMock()
+        companies_chain.select.return_value = companies_chain
+        companies_chain.eq.return_value = companies_chain
+        companies_chain.execute.return_value = MagicMock(data=[
+            {"id": "co-1", "name": "Acme Corp"}
+        ])
+
+        signals_chain = MagicMock()
+        signals_chain.select.return_value = signals_chain
+        signals_chain.eq.return_value = signals_chain
+        signals_chain.in_.return_value = signals_chain
+        signals_chain.order.return_value = signals_chain
+        signals_chain.limit.return_value = signals_chain
+        signals_chain.execute.return_value = MagicMock(data=[{
+            "headline": "Acme raises $500M",
+            "type": "investment",
+            "company_id": "co-1",
+            "source_url": "https://example.com",
+            "created_at": "2026-03-01T00:00:00Z",
+        }])
+
+        def table_side_effect(name):
+            if name == "companies":
+                return companies_chain
+            return signals_chain
+
+        sb.table.side_effect = table_side_effect
+
+        result = await execute_tool(
+            tool_name="get_signals",
+            tool_input={"limit": 5},
+            user_id="user-1",
+            supabase_admin=sb,
+            brave_api_key="",
+        )
+        assert len(result) == 1
+        assert result[0]["headline"] == "Acme raises $500M"
+        assert result[0]["company_name"] == "Acme Corp"
+
+    @pytest.mark.asyncio
+    async def test_empty_companies_returns_empty(self):
+        sb = MagicMock()
+        chain = MagicMock()
+        chain.select.return_value = chain
+        chain.eq.return_value = chain
+        chain.execute.return_value = MagicMock(data=[])
+        sb.table.return_value = chain
+
+        result = await execute_tool(
+            tool_name="get_signals",
+            tool_input={},
+            user_id="user-1",
+            supabase_admin=sb,
+            brave_api_key="",
+        )
+        assert result == []
