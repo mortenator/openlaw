@@ -1,9 +1,19 @@
 """Tool definitions and executors for the OpenLaw agentic query engine."""
 
 import logging
+import re
 from typing import Any
 
 import httpx
+
+# Basic cron expression pattern: 5 fields (min hour dom month dow)
+_CRON_PATTERN = re.compile(
+    r'^(\*|[0-9,\-/]+)\s+'  # minute
+    r'(\*|[0-9,\-/]+)\s+'  # hour
+    r'(\*|[0-9,\-/]+)\s+'  # day-of-month
+    r'(\*|[0-9,\-/]+)\s+'  # month
+    r'(\*|[0-9,\-/]+)$'    # day-of-week
+)
 
 log = logging.getLogger(__name__)
 
@@ -206,6 +216,28 @@ async def _exec_create_cron(
     job_type = tool_input["job_type"]
     schedule = tool_input["schedule"]
     keywords = tool_input.get("keywords", [])
+
+    # Validate cron expression before touching the DB
+    if not _CRON_PATTERN.match(schedule.strip()):
+        return {"error": f"Invalid cron expression: {schedule!r}. Expected 5 fields (min hour dom month dow)."}
+
+    # Dedup: if a cron with the same name + job_type already exists, return it
+    existing = (
+        supabase_admin.table("user_crons")
+        .select("id, cron_expression")
+        .eq("user_id", user_id)
+        .eq("name", name)
+        .eq("job_type", job_type)
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        return {
+            "created": False,
+            "already_exists": True,
+            "cron_id": existing.data[0]["id"],
+            "schedule": existing.data[0].get("cron_expression", schedule),
+        }
 
     row = {
         "user_id": user_id,

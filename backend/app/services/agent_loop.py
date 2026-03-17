@@ -9,6 +9,11 @@ import anthropic
 
 from .tools import TOOL_SCHEMAS, execute_tool
 
+# NOTE: supabase-py uses a synchronous client (blocking I/O). Tool executors call it
+# from async functions, which will block the event loop under concurrent load.
+# supabase-py's async client support is experimental; migrating is a future task.
+# For MVP (low concurrency), this is acceptable.
+
 log = logging.getLogger(__name__)
 
 _MODEL = "claude-3-5-sonnet-20241022"

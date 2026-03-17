@@ -76,9 +76,11 @@ class TestCreateCronExecutor:
     async def test_inserts_correct_data(self):
         sb = _mock_supabase()
         cron_table = sb.table("user_crons")
-        cron_table.execute.return_value = MagicMock(
-            data=[{"id": "cron-uuid-123"}]
-        )
+        # First call = dedup check (no existing), second call = insert result
+        cron_table.execute.side_effect = [
+            MagicMock(data=[]),                      # dedup check: no existing
+            MagicMock(data=[{"id": "cron-uuid-123"}]),  # insert result
+        ]
 
         result = await execute_tool(
             tool_name="create_cron",
