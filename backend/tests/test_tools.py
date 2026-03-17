@@ -378,3 +378,68 @@ class TestGetSignalsExecutor:
         )
         assert result == []
 
+
+
+class TestCreateCronValidation:
+    @pytest.mark.asyncio
+    async def test_invalid_cron_expression_returns_error(self):
+        """Malformed cron expression should return error dict, not raise."""
+        sb = _mock_supabase()
+        result = await execute_tool(
+            tool_name="create_cron",
+            tool_input={
+                "name": "Bad cron",
+                "job_type": "market_brief",
+                "schedule": "not-a-cron",
+            },
+            user_id="user-1",
+            supabase_admin=sb,
+            brave_api_key="",
+        )
+        assert "error" in result
+        assert "Invalid cron" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_step_expression_accepted(self):
+        """Step syntax like */2 must pass validation."""
+        sb = _mock_supabase()
+        cron_table = sb.table("user_crons")
+        cron_table.execute.side_effect = [
+            MagicMock(data=[]),  # dedup check
+            MagicMock(data=[{"id": "cron-step-1"}]),  # insert
+        ]
+        result = await execute_tool(
+            tool_name="create_cron",
+            tool_input={
+                "name": "Every 2 hours",
+                "job_type": "market_brief",
+                "schedule": "0 */2 * * *",
+            },
+            user_id="user-1",
+            supabase_admin=sb,
+            brave_api_key="",
+        )
+        assert result.get("created") is True
+
+    @pytest.mark.asyncio
+    async def test_duplicate_cron_returns_already_exists(self):
+        """Existing cron with same name+job_type returns already_exists flag."""
+        sb = _mock_supabase()
+        cron_table = sb.table("user_crons")
+        cron_table.execute.return_value = MagicMock(
+            data=[{"id": "existing-cron", "cron_expression": "0 8 * * 5"}]
+        )
+        result = await execute_tool(
+            tool_name="create_cron",
+            tool_input={
+                "name": "Weekly AI scan",
+                "job_type": "market_brief",
+                "schedule": "0 8 * * 5",
+            },
+            user_id="user-1",
+            supabase_admin=sb,
+            brave_api_key="",
+        )
+        assert result.get("already_exists") is True
+        assert result.get("created") is False
+        assert result["cron_id"] == "existing-cron"

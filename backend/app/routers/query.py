@@ -17,19 +17,32 @@ from app.services.agent_loop import run_agent_loop
 
 router = APIRouter(prefix="/query", tags=["query"])
 
-# Simple token-bucket rate limiter: max 5 requests per user per minute
+# Simple token-bucket rate limiter: max 5 requests per user per minute.
+# NOTE: per-process only — with multiple workers each has its own bucket.
+# Effective limit is 5 × N_workers. Acceptable for MVP; use Redis for multi-worker.
 _RATE_LIMIT = 5
 _RATE_WINDOW = 60  # seconds
-_user_request_times: dict[str, Deque[float]] = defaultdict(deque)
+_MAX_TRACKED_USERS = 10_000  # LRU cap to prevent unbounded memory growth
+_user_request_times: dict[str, Deque[float]] = {}
 
 
 def _check_rate_limit(user_id: str) -> None:
     now = time.monotonic()
     window_start = now - _RATE_WINDOW
+
+    # Evict oldest entry when cap is reached (simple LRU approximation)
+    if user_id not in _user_request_times and len(_user_request_times) >= _MAX_TRACKED_USERS:
+        oldest_key = next(iter(_user_request_times))
+        del _user_request_times[oldest_key]
+
+    if user_id not in _user_request_times:
+        _user_request_times[user_id] = deque()
+
     q = _user_request_times[user_id]
-    # Purge old timestamps
+    # Purge timestamps outside the window
     while q and q[0] < window_start:
         q.popleft()
+
     if len(q) >= _RATE_LIMIT:
         raise HTTPException(
             status_code=429,
