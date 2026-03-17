@@ -35,7 +35,7 @@ export default function CompaniesPage() {
     try {
       const created = await api.companies.create(token, {
         ...form,
-        tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        tags: form.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
       })
       setCompanies((prev) => [...prev, created])
       setShowForm(false)
