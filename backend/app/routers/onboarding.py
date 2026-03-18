@@ -12,8 +12,10 @@ import asyncio
 import csv
 import io
 import logging
+import time
+from collections import deque
 from datetime import datetime, timezone
-from typing import Any, Union
+from typing import Any, Deque, Union
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
@@ -24,6 +26,31 @@ from app.deps import get_current_user
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
+
+# Rate limit: 20 step submissions per user per minute (prevents CSV spam)
+_STEP_RATE_LIMIT = 20
+_STEP_RATE_WINDOW = 60
+_MAX_TRACKED_STEP_USERS = 10_000
+_step_request_times: dict[str, Deque[float]] = {}
+
+
+def _check_step_rate_limit(user_id: str) -> None:
+    now = time.monotonic()
+    window_start = now - _STEP_RATE_WINDOW
+    if user_id not in _step_request_times:
+        if len(_step_request_times) >= _MAX_TRACKED_STEP_USERS:
+            oldest = next(iter(_step_request_times))
+            del _step_request_times[oldest]
+        _step_request_times[user_id] = deque()
+    q = _step_request_times[user_id]
+    while q and q[0] < window_start:
+        q.popleft()
+    if len(q) >= _STEP_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests — max {_STEP_RATE_LIMIT} step submissions per minute.",
+        )
+    q.append(now)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -310,6 +337,8 @@ def _parse_contact_csv(csv_text: str, max_rows: int = MAX_CSV_ROWS) -> list[dict
         name = normalized.get("name", "")
         if not name:
             continue
+        if len(contacts) >= max_rows:
+            raise ValueError(f"CSV exceeds the maximum of {max_rows} contacts")
         contacts.append(
             {
                 "name": name[:200],
@@ -318,8 +347,6 @@ def _parse_contact_csv(csv_text: str, max_rows: int = MAX_CSV_ROWS) -> list[dict
                 "role": normalized.get("role", "")[:200],
             }
         )
-        if len(contacts) >= max_rows:
-            raise ValueError(f"CSV exceeds the maximum of {max_rows} contacts")
     return contacts
 
 
@@ -521,6 +548,7 @@ async def onboarding_step(
     background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
 ) -> dict:
+    _check_step_rate_limit(str(current_user.id))
     user_id = current_user.id
     step = payload.step
 

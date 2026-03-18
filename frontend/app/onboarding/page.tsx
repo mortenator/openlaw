@@ -141,6 +141,7 @@ function StepContactImport({
   const [csvText, setCsvText] = useState('')
   const [fileName, setFileName] = useState('')
   const [parsePreview, setParsePreview] = useState<string[]>([])
+  const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -211,6 +212,10 @@ function StepContactImport({
           </div>
         )}
       </button>
+
+      {error && (
+        <p className="text-red-600 text-sm mb-3">{error}</p>
+      )}
 
       <div className="flex gap-3">
         <button
