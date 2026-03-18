@@ -8,3 +8,6 @@ __pycache__/
 frontend/.env
 frontend/.env.local
 frontend/.env*.local
+frontend/.next/
+frontend/node_modules/
+frontend/package-lock.json
