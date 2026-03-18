@@ -1,4 +1,18 @@
 {
+  "/_not-found/page": "app/_not-found/page.js",
+  "/login/page": "app/login/page.js",
+  "/dashboard/chat/page": "app/dashboard/chat/page.js",
+  "/dashboard/companies/page": "app/dashboard/companies/page.js",
+  "/dashboard/contacts/page": "app/dashboard/contacts/page.js",
+  "/dashboard/memory/page": "app/dashboard/memory/page.js",
+  "/dashboard/contacts/[id]/page": "app/dashboard/contacts/[id]/page.js",
+  "/dashboard/deliveries/page": "app/dashboard/deliveries/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/crons/page": "app/dashboard/crons/page.js",
+  "/dashboard/signals/page": "app/dashboard/signals/page.js",
+  "/onboarding/card/page": "app/onboarding/card/page.js",
+  "/onboarding/page": "app/onboarding/page.js",
+  "/onboarding/booting/page": "app/onboarding/booting/page.js",
   "/onboarding/confirm/page": "app/onboarding/confirm/page.js",
-  "/onboarding/card/page": "app/onboarding/card/page.js"
+  "/onboarding/chat/page": "app/onboarding/chat/page.js"
 }
