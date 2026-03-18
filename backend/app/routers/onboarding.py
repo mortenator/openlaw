@@ -405,7 +405,7 @@ def _run_onboarding_ingestion(user_id: str) -> None:
             # Resolve company IDs (create missing firms first)
             contact_rows: list[dict[str, Any]] = []
             for contact in parsed_contacts:
-                company_id = company_name_to_id.get(contact["company"].lower())
+                company_id = company_name_to_id.get(contact["company"].lower()) if contact["company"] else None
 
                 # If contact references a company not yet tracked, create it
                 if contact["company"] and not company_id:
@@ -478,6 +478,14 @@ def _run_onboarding_ingestion(user_id: str) -> None:
 
     except Exception:
         logger.exception("Onboarding ingestion failed for user %s", user_id)
+        # Roll back the atomic claim so the user can retry onboarding
+        try:
+            supabase.table("onboarding_sessions").update(
+                {"is_complete": False, "updated_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("user_id", user_id).execute()
+            logger.info("Ingestion: rolled back is_complete for user %s — user can retry", user_id)
+        except Exception:
+            logger.exception("Ingestion: failed to roll back is_complete for user %s — manual fix required", user_id)
 
 
 # ---------------------------------------------------------------------------
