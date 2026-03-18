@@ -318,7 +318,7 @@ def _parse_contact_csv(csv_text: str, max_rows: int = MAX_CSV_ROWS) -> list[dict
                 "role": normalized.get("role", "")[:200],
             }
         )
-        if len(contacts) > max_rows:
+        if len(contacts) >= max_rows:
             raise ValueError(f"CSV exceeds the maximum of {max_rows} contacts")
     return contacts
 
@@ -331,22 +331,22 @@ def _parse_contact_csv(csv_text: str, max_rows: int = MAX_CSV_ROWS) -> list[dict
 def _run_onboarding_ingestion(user_id: str) -> None:
     """Background task that processes onboarding answers into real data."""
     try:
-        session_result = (
+        # Atomic claim: only proceed if is_complete is currently false.
+        # This prevents double-ingestion from concurrent step-5 submissions.
+        claim_result = (
             supabase.table("onboarding_sessions")
-            .select("answers, is_complete")
+            .update({"is_complete": True})
             .eq("user_id", user_id)
+            .eq("is_complete", False)
+            .select("answers")
             .execute()
         )
-        if not session_result.data:
-            logger.error("Ingestion: no session found for user %s", user_id)
+        if not claim_result.data:
+            # Either no session exists or another task already claimed it
+            logger.info("Ingestion: session already claimed or missing for user %s, skipping", user_id)
             return
 
-        # Guard against duplicate runs (race condition on double-submit)
-        if session_result.data[0].get("is_complete"):
-            logger.info("Ingestion: session already complete for user %s, skipping", user_id)
-            return
-
-        answers: dict = session_result.data[0].get("answers") or {}
+        answers: dict = claim_result.data[0].get("answers") or {}
 
         user_result = supabase.table("users").select("*").eq("id", user_id).execute()
         if not user_result.data:
@@ -405,12 +405,18 @@ def _run_onboarding_ingestion(user_id: str) -> None:
                     row["company_id"] = company_id
                 contact_rows.append(row)
 
-            # Batch insert all contacts at once
+            # Split: upsert rows that have emails (dedup on user_id,email),
+            # plain insert rows without email (NULL email would collide on upsert key)
             if contact_rows:
-                supabase.table("contacts").upsert(
-                    contact_rows,
-                    on_conflict="user_id,email",
-                ).execute()
+                rows_with_email = [r for r in contact_rows if r.get("email")]
+                rows_no_email = [r for r in contact_rows if not r.get("email")]
+                if rows_with_email:
+                    supabase.table("contacts").upsert(
+                        rows_with_email,
+                        on_conflict="user_id,email",
+                    ).execute()
+                if rows_no_email:
+                    supabase.table("contacts").insert(rows_no_email).execute()
 
         # 3. Generate USER.md and other agent configs
         _generate_agent_configs(user_id, user_row, answers)
@@ -430,10 +436,11 @@ def _run_onboarding_ingestion(user_id: str) -> None:
                 {"answers": cleared_answers}
             ).eq("user_id", user_id).execute()
 
-        # 6. Mark onboarding complete
+        # 6. Mark onboarding complete (is_complete already set atomically at task start;
+        # only update completed_at + updated_at timestamp here)
         now = datetime.now(timezone.utc).isoformat()
         supabase.table("onboarding_sessions").update(
-            {"is_complete": True, "completed_at": now, "updated_at": now}
+            {"completed_at": now, "updated_at": now}
         ).eq("user_id", user_id).execute()
 
         supabase.table("users").update(

@@ -146,7 +146,16 @@ function StepContactImport({
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+
+    const MAX_CSV_BYTES = 500 * 1024 // 500KB — matches backend limit
+    if (file.size > MAX_CSV_BYTES) {
+      setError(`File too large (${(file.size / 1024).toFixed(0)}KB). Maximum is 500KB.`)
+      e.target.value = ''
+      return
+    }
+
     setFileName(file.name)
+    setError('')
 
     const reader = new FileReader()
     reader.onload = (ev) => {
