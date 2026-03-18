@@ -47,6 +47,9 @@ PRACTICE_AREA_OPTIONS = [
 # Max CSV size: 500 KB (generous for contact lists)
 MAX_CSV_SIZE = 500_000
 
+# Max number of contacts parsed from a single CSV upload
+MAX_CSV_ROWS = 500
+
 # ---------------------------------------------------------------------------
 # Request / response models
 # ---------------------------------------------------------------------------
@@ -294,10 +297,11 @@ def _generate_agent_configs(user_id: str, user_row: dict, answers: dict) -> None
 # ---------------------------------------------------------------------------
 
 
-def _parse_contact_csv(csv_text: str) -> list[dict[str, str]]:
+def _parse_contact_csv(csv_text: str, max_rows: int = MAX_CSV_ROWS) -> list[dict[str, str]]:
     """Parse CSV text with columns: Name, Email, Company, Role.
 
-    Returns a list of dicts with lowercase keys. Skips rows missing name."""
+    Returns a list of dicts with lowercase keys. Skips rows missing name.
+    Raises ValueError if the CSV exceeds *max_rows* valid contacts."""
     reader = csv.DictReader(io.StringIO(csv_text))
     contacts: list[dict[str, str]] = []
     for row in reader:
@@ -314,6 +318,8 @@ def _parse_contact_csv(csv_text: str) -> list[dict[str, str]]:
                 "role": normalized.get("role", "")[:200],
             }
         )
+        if len(contacts) > max_rows:
+            raise ValueError(f"CSV exceeds the maximum of {max_rows} contacts")
     return contacts
 
 
@@ -327,12 +333,17 @@ def _run_onboarding_ingestion(user_id: str) -> None:
     try:
         session_result = (
             supabase.table("onboarding_sessions")
-            .select("answers")
+            .select("answers, is_complete")
             .eq("user_id", user_id)
             .execute()
         )
         if not session_result.data:
             logger.error("Ingestion: no session found for user %s", user_id)
+            return
+
+        # Guard against duplicate runs (race condition on double-submit)
+        if session_result.data[0].get("is_complete"):
+            logger.info("Ingestion: session already complete for user %s, skipping", user_id)
             return
 
         answers: dict = session_result.data[0].get("answers") or {}
@@ -363,8 +374,10 @@ def _run_onboarding_ingestion(user_id: str) -> None:
         csv_text = answers.get("step_4", "")
         if isinstance(csv_text, str) and csv_text.strip():
             parsed_contacts = _parse_contact_csv(csv_text)
+
+            # Resolve company IDs (create missing firms first)
+            contact_rows: list[dict[str, Any]] = []
             for contact in parsed_contacts:
-                # Try to match company to an existing tracked_firm
                 company_id = company_name_to_id.get(contact["company"].lower())
 
                 # If contact references a company not yet tracked, create it
@@ -381,7 +394,7 @@ def _run_onboarding_ingestion(user_id: str) -> None:
                         company_id = new_firm.data[0]["id"]
                         company_name_to_id[contact["company"].lower()] = company_id
 
-                contact_row: dict[str, Any] = {
+                row: dict[str, Any] = {
                     "user_id": user_id,
                     "name": contact["name"],
                     "email": contact["email"] or None,
@@ -389,9 +402,15 @@ def _run_onboarding_ingestion(user_id: str) -> None:
                     "tier": 2,  # default: active
                 }
                 if company_id:
-                    contact_row["company_id"] = company_id
+                    row["company_id"] = company_id
+                contact_rows.append(row)
 
-                supabase.table("contacts").insert(contact_row).execute()
+            # Batch insert all contacts at once
+            if contact_rows:
+                supabase.table("contacts").upsert(
+                    contact_rows,
+                    on_conflict="user_id,email",
+                ).execute()
 
         # 3. Generate USER.md and other agent configs
         _generate_agent_configs(user_id, user_row, answers)
@@ -404,7 +423,14 @@ def _run_onboarding_ingestion(user_id: str) -> None:
                 {"practice_area": clean_areas}
             ).eq("id", user_id).execute()
 
-        # 5. Mark onboarding complete
+        # 5. Clear CSV PII from session answers now that contacts are imported
+        if "step_4" in answers:
+            cleared_answers = {**answers, "step_4": "(imported)"}
+            supabase.table("onboarding_sessions").update(
+                {"answers": cleared_answers}
+            ).eq("user_id", user_id).execute()
+
+        # 6. Mark onboarding complete
         now = datetime.now(timezone.utc).isoformat()
         supabase.table("onboarding_sessions").update(
             {"is_complete": True, "completed_at": now, "updated_at": now}
@@ -511,6 +537,15 @@ async def onboarding_step(
 
     if is_complete:
         raise HTTPException(status_code=400, detail="Onboarding already complete")
+
+    # Enforce step ordering: submitted step must be the current session step
+    # (or step 1 for a fresh session where current_step == 0)
+    expected_step = current_step if current_step >= 1 else 1
+    if step != expected_step:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cannot submit step {step} — current session is at step {expected_step}. Complete steps in order.",
+        )
 
     # Step 1 (welcome) requires no answer — just acknowledge and advance
     if step == 1:
@@ -919,8 +954,14 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
             on_conflict="user_id,memory_key",
         ).execute()
 
+    # Translate legacy answer keys to the step_N format expected by _generate_agent_configs
+    legacy_answers = {
+        "step_2": answers.get("1", []),   # practice/deal types → step_2
+        "step_3": answers.get("3", ""),   # watchlist companies → step_3
+    }
+
     try:
-        await asyncio.to_thread(_generate_agent_configs, user_id, updated_user_row, answers)
+        await asyncio.to_thread(_generate_agent_configs, user_id, updated_user_row, legacy_answers)
     except Exception as exc:
         raise HTTPException(
             status_code=500,
