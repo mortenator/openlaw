@@ -109,6 +109,35 @@ export const api = {
       }),
   },
   onboarding: {
+    // New step-based flow
+    step: (token: string, step: number, answer: unknown) =>
+      apiFetch<{
+        step: number
+        complete: boolean
+        question?: {
+          title: string
+          description: string
+          input_type?: string
+          options?: string[]
+          summary?: {
+            practice_areas: string[]
+            target_companies: string[]
+            contacts_count: number
+          }
+        }
+        message?: string
+      }>(token, '/onboarding/step', {
+        method: 'POST',
+        body: JSON.stringify({ step, answer }),
+      }),
+
+    status: (token: string) =>
+      apiFetch<{ step: number; complete: boolean; answers: Record<string, unknown> }>(
+        token,
+        '/onboarding/status'
+      ),
+
+    // Legacy endpoints (kept for backward compat)
     card: (
       token: string,
       data: { first_name: string; last_name: string; firm: string; role?: string; practice_area: string[] }
@@ -133,11 +162,5 @@ export const api = {
       apiFetch<{ success: boolean; redirect: string }>(token, '/onboarding/confirm', {
         method: 'POST',
       }),
-
-    status: (token: string) =>
-      apiFetch<{ step: number; complete: boolean; answers: Record<string, unknown> }>(
-        token,
-        '/onboarding/status'
-      ),
   },
 }
