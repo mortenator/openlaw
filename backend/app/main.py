@@ -2,12 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import (
-    companies,
-    contacts,
-    crons,
     deliveries,
-    signals,
-    users,
 )
 from app.routers import (
     agent_configs,
@@ -15,6 +10,7 @@ from app.routers import (
     companies_auth,
     contacts_auth,
     crons_auth,
+    deliveries_auth,
     internal,
     jobs,
     onboarding,
@@ -37,12 +33,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Legacy user-scoped routes
-app.include_router(users.router)
-app.include_router(contacts.router)
-app.include_router(companies.router)
-app.include_router(signals.router)
-app.include_router(crons.router)
+# Legacy user-scoped router — routes: GET/PATCH /users/{user_id}/deliveries
+# and GET/PATCH /users/{user_id}/outreach-suggestions.
+# No prefix set; NO collision with deliveries_auth (prefix=/deliveries) or
+# suggestions (prefix=/suggestions). Kept for backward compat only.
 app.include_router(deliveries.router)
 
 # Auth-based routes (Bearer token)
@@ -55,6 +49,7 @@ app.include_router(contacts_auth.router)
 app.include_router(companies_auth.router)
 app.include_router(signals_auth.router)
 app.include_router(crons_auth.router)
+app.include_router(deliveries_auth.router)
 app.include_router(onboarding.router)
 app.include_router(internal.router)
 
