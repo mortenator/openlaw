@@ -967,7 +967,9 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     if user_check.data and user_check.data[0].get("onboarding_complete"):
         return {"success": True, "redirect": "/dashboard", "idempotent": True}
 
-    required_steps = ["card", "1", "2", "3", "4", "5", "6"]
+    # Step "1" is a bootstrap call (returns question only, no answer saved) — not required.
+    # Steps "2"–"6" are the real answers; step 3 follow-up saves to "4" so "4"–"7" may vary.
+    required_steps = ["card", "2", "3"]
     missing = [s for s in required_steps if s not in answers]
     if missing:
         raise HTTPException(
