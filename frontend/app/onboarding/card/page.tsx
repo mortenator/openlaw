@@ -91,7 +91,7 @@ export default function OnboardingCardPage() {
             onChange={(e) => setFirm(e.target.value)}
             placeholder="Sullivan & Cromwell"
             aria-label="Firm"
-            className="bg-transparent text-sm font-medium text-gray-700 placeholder-gray-400 focus:outline-none border-b border-transparent hover:border-gray-300 focus:border-gray-400 transition-colors pb-px max-w-[200px]"
+            className="bg-white/70 rounded-lg px-3 py-2 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1B3A5C]/30 max-w-[220px]"
           />
           <span className="text-xs text-gray-400 tracking-wide select-none">
             ⚡ OpenLaw
