@@ -31,7 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       setReady(true)
     })
-  }, [router])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ready) {
     return (
