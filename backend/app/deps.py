@@ -32,9 +32,9 @@ async def get_or_provision_user(authorization: str = Header(...)):
 
     user = response.user
 
-    # Insert a minimal users row if one doesn't exist yet.
-    # Using PostgREST's ignoreDuplicates (INSERT ... ON CONFLICT DO NOTHING) so we
-    # never touch name/practice_area/comms_channel for users who have already onboarded.
+    # INSERT ... ON CONFLICT DO NOTHING — never overwrites existing profile fields.
+    # ignore_duplicates=True is the supabase-py equivalent of PostgREST's
+    # Prefer: return=minimal + on_conflict resolution that does nothing on conflict.
     try:
         supabase.table("users").insert(
             {
@@ -43,11 +43,12 @@ async def get_or_provision_user(authorization: str = Header(...)):
                 "name": (user.email or "").split("@")[0],
                 "comms_channel": _DEFAULT_COMMS_CHANNEL,
             },
+            ignore_duplicates=True,
         ).execute()
     except Exception as exc:
-        # A unique-constraint conflict (row already exists) is the expected happy path.
-        # Log at debug so real failures (DB down, schema mismatch) are still visible.
-        log.debug("users row provision for user_id=%s: %s", user.id, exc)
+        # ignore_duplicates=True means conflicts are handled DB-side.
+        # Any exception here is a real failure (DB down, schema mismatch) — warn loudly.
+        log.warning("Failed to provision users row for user_id=%s: %s", user.id, exc)
 
     return user
 
