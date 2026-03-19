@@ -4,11 +4,19 @@ export const dynamic = "force-dynamic"
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
+import { Send, MessageSquare } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
 }
+
+const SUGGESTION_CHIPS = [
+  'Find companies expanding AI infrastructure',
+  'Who should I reconnect with this week?',
+  'Summarize recent signals from Microsoft',
+  'What deals closed in my sector this month?',
+]
 
 export default function ChatPage() {
   const [token, setToken] = useState<string | null>(null)
@@ -27,8 +35,8 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function handleSend() {
-    const msg = input.trim()
+  async function handleSend(override?: string) {
+    const msg = (override ?? input).trim()
     if (!msg || !token || loading) return
 
     setInput('')
@@ -38,7 +46,7 @@ export default function ChatPage() {
     try {
       const { response } = await api.query.send(token, msg)
       setMessages((prev) => [...prev, { role: 'assistant', content: response }])
-    } catch (err) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
@@ -50,12 +58,48 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
-      <h1 className="text-2xl font-bold text-gray-900 mb-4">Chat</h1>
+      {/* Header */}
+      <div className="mb-6">
+        <h1
+          style={{ color: 'var(--text-primary)' }}
+          className="text-2xl font-semibold tracking-tight"
+        >
+          Ask OpenLaw
+        </h1>
+        <p style={{ color: 'var(--text-tertiary)' }} className="text-sm mt-1">
+          Research prospects, find deal signals, analyze companies
+        </p>
+      </div>
 
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-4 pb-4">
         {messages.length === 0 && (
-          <div className="text-center text-gray-400 text-sm mt-16">
-            Ask me anything — find target companies, research prospects, get market analysis...
+          <div className="flex flex-col items-center justify-center mt-16 gap-6">
+            <div
+              style={{ background: 'var(--surface)', color: 'var(--text-tertiary)' }}
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+            >
+              <MessageSquare size={24} />
+            </div>
+            <p style={{ color: 'var(--text-tertiary)' }} className="text-sm">
+              Ask me anything — find target companies, research prospects, get market analysis...
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+              {SUGGESTION_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => handleSend(chip)}
+                  style={{
+                    background: 'var(--surface)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border)',
+                  }}
+                  className="px-3 py-2 rounded-lg text-xs hover:opacity-80 transition-opacity text-left"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -65,10 +109,13 @@ export default function ChatPage() {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-xl px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
+              style={
                 msg.role === 'user'
-                  ? 'bg-blue-600 text-white rounded-br-sm'
-                  : 'bg-gray-100 text-gray-900 rounded-bl-sm'
+                  ? { background: 'var(--accent)', color: '#FFFFFF' }
+                  : { background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }
+              }
+              className={`max-w-xl px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
+                msg.role === 'user' ? 'rounded-br-sm' : 'rounded-bl-sm'
               }`}
             >
               {msg.content}
@@ -78,7 +125,10 @@ export default function ChatPage() {
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-3 text-sm text-gray-500">
+            <div
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-tertiary)' }}
+              className="rounded-2xl rounded-bl-sm px-4 py-3 text-sm"
+            >
               <span className="animate-pulse">Thinking...</span>
             </div>
           </div>
@@ -87,22 +137,33 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex gap-3 pt-4 border-t border-gray-200">
+      {/* Input */}
+      <div
+        style={{ borderTop: '1px solid var(--border)' }}
+        className="flex gap-3 pt-4"
+      >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
           placeholder="Ask me anything..."
-          className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          style={{
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-primary)',
+          }}
+          className="flex-1 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2"
           disabled={loading}
         />
         <button
-          onClick={handleSend}
+          onClick={() => handleSend()}
           disabled={loading || !input.trim()}
-          className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50"
+          style={{ background: 'var(--accent)' }}
+          className="px-4 py-2.5 text-white rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center gap-2"
         >
-          Send
+          <Send size={16} />
+          <span className="text-sm font-medium">Send</span>
         </button>
       </div>
     </div>

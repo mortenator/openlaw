@@ -39,16 +39,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!ready) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-400 text-sm">Loading...</div>
+      <div
+        style={{ background: 'var(--bg)' }}
+        className="min-h-screen flex items-center justify-center"
+      >
+        <div style={{ color: 'var(--text-tertiary)' }} className="text-sm">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div style={{ background: 'var(--bg)' }} className="flex min-h-screen">
       <Sidebar />
-      <main className="flex-1 ml-64 p-8">{children}</main>
+      <main style={{ background: 'var(--bg)' }} className="flex-1 ml-64 p-8">{children}</main>
     </div>
   )
 }
