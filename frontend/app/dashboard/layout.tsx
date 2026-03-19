@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = "force-dynamic"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
@@ -9,12 +9,14 @@ import Sidebar from '@/components/layout/Sidebar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const routerRef = useRef(router)
+  routerRef.current = router
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
-        router.push('/login')
+        routerRef.current.push('/login')
         return
       }
 
@@ -22,7 +24,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       try {
         const status = await api.onboarding.status(session.access_token)
         if (!status.complete) {
-          router.push('/onboarding/card')
+          routerRef.current.push('/onboarding/card')
           return
         }
       } catch {
@@ -30,8 +32,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
 
       setReady(true)
+    }).catch(() => {
+      routerRef.current.push('/login')
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   if (!ready) {
     return (

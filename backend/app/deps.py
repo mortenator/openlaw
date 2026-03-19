@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from fastapi import HTTPException, Header
 from app.database import supabase
@@ -40,7 +41,7 @@ async def get_or_provision_user(authorization: str = Header(...)):
             {
                 "id": str(user.id),
                 "email": user.email or "",
-                "name": (user.email or "").split("@")[0],
+                "name": re.sub(r"[^\w\s\-.]", "", (user.email or "").split("@")[0])[:100],
                 "comms_channel": _DEFAULT_COMMS_CHANNEL,
             },
             ignore_duplicates=True,
