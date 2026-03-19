@@ -19,11 +19,11 @@ function TypingIndicator() {
       <div className="bg-[#1B3A5C] rounded-full w-8 h-8 flex items-center justify-center text-xs flex-shrink-0 mt-1">
         ⚡
       </div>
-      <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex items-center gap-1">
+      <div className="bg-white border border-[#E0DDD8] rounded-2xl px-4 py-3 flex items-center gap-1 shadow-sm">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
+            className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce"
             style={{ animationDelay: `${i * 150}ms` }}
           />
         ))}
@@ -38,7 +38,7 @@ function AgentMessage({ content }: { content: string }) {
       <div className="bg-[#1B3A5C] rounded-full w-8 h-8 flex items-center justify-center text-xs flex-shrink-0 mt-1">
         ⚡
       </div>
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 max-w-lg text-sm text-white/90 leading-relaxed">
+      <div className="bg-white border border-[#E0DDD8] rounded-2xl p-4 max-w-lg text-sm text-gray-800 leading-relaxed shadow-sm">
         {content}
       </div>
     </div>
@@ -79,8 +79,8 @@ function ChipSelect({
             onClick={() => toggle(opt)}
             className={`rounded-full px-3 py-1.5 text-sm cursor-pointer transition-colors ${
               selected.includes(opt)
-                ? 'border border-[#7B9FC4] bg-[#1B3A5C]/40 text-white'
-                : 'border border-white/20 text-white/70 hover:border-white/40'
+                ? 'bg-[#1B3A5C] text-white border border-[#1B3A5C]'
+                : 'border border-[#1B3A5C]/30 text-gray-600 hover:border-[#1B3A5C]/60'
             }`}
           >
             {opt}
@@ -133,7 +133,7 @@ function FreeInput({
         onKeyDown={handleKeyDown}
         rows={1}
         placeholder={placeholder}
-        className="flex-1 bg-transparent border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/30 text-sm resize-none focus:outline-none focus:border-white/40"
+        className="flex-1 bg-white border border-[#D8D5D0] rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 text-sm resize-none focus:outline-none focus:border-[#1B3A5C]/40 shadow-sm"
       />
       <button
         onClick={handleSend}
@@ -164,7 +164,7 @@ export default function OnboardingChatPage() {
   const [step3FollowUp, setStep3FollowUp] = useState(false)
   const [step3Companies, setStep3Companies] = useState('')
   const [qaKey, setQaKey] = useState(0) // reset input components
-  const [bgMounted, setBgMounted] = useState(false)
+  const [bgMounted, setBgMounted] = useState(true)
   const openingDoneRef = useRef(false) // ref avoids triggering deps re-run
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -197,10 +197,6 @@ export default function OnboardingChatPage() {
 
     const timeouts: ReturnType<typeof setTimeout>[] = []
 
-    // Trigger bg transition
-    const t0 = setTimeout(() => setBgMounted(true), 50)
-    timeouts.push(t0)
-
     // Typing → message 1
     setIsTyping(true)
     const t1 = setTimeout(() => {
@@ -208,7 +204,9 @@ export default function OnboardingChatPage() {
       setMessages([
         {
           role: 'agent',
-          content: `Hi ${firstName || 'there'}. I'm your OpenLaw agent — no name yet, fresh out of the box. 🌱`,
+          content: firstName
+            ? `Hi ${firstName} — good to meet you. I'm your OpenLaw agent, just getting started.`
+            : `Hi there. I'm your OpenLaw agent — no name yet, fresh out of the box. 🌱`,
         },
       ])
 
@@ -356,11 +354,8 @@ export default function OnboardingChatPage() {
 
   return (
     <div
-      className="min-h-screen transition-colors"
-      style={{
-        backgroundColor: bgMounted ? '#0D0D0D' : '#F8F7F5',
-        transitionDuration: '400ms',
-      }}
+      className="min-h-screen"
+      style={{ backgroundColor: '#F8F7F5' }}
     >
       <div className="max-w-2xl mx-auto pt-16 pb-32 px-4">
         {/* Messages */}
@@ -392,7 +387,7 @@ export default function OnboardingChatPage() {
 
       {/* Fixed input area */}
       {showInput && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[#111] border-t border-white/10 p-4">
+        <div className="fixed bottom-0 left-0 right-0 bg-[#F8F7F5] border-t border-[#E0DDD8] p-4">
           <div className="max-w-2xl mx-auto">
             {inputType === 'chips' && chipOptions.length > 0 ? (
               <ChipSelect key={qaKey} options={chipOptions} onSubmit={handleAnswer} />
