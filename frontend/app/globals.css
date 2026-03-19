@@ -58,3 +58,25 @@ body {
   color: var(--text-primary);
   transition: background-color 0.2s, color 0.2s;
 }
+
+/* Placeholder text */
+::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
+/* Focus ring uses accent color */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Remove default focus ring on buttons/inputs since we handle it */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Tailwind divide color */
+.divide-y > * + * {
+  border-color: var(--border);
+}

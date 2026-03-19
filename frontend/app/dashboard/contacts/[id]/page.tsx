@@ -69,57 +69,68 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
   }
 
   if (loadError) {
-    return <div className="text-red-600 text-sm">{loadError}</div>
+    return <div style={{ color: 'var(--red)' }} className="text-sm">{loadError}</div>
   }
 
   if (!contact) {
-    return <div className="text-gray-400 text-sm">Loading...</div>
+    return <div style={{ color: 'var(--text-tertiary)' }} className="text-sm">Loading...</div>
   }
 
   return (
     <div className="max-w-xl">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/dashboard/contacts" className="text-sm text-gray-500 hover:text-gray-700">
+        <Link
+          href="/dashboard/contacts"
+          style={{ color: 'var(--text-secondary)' }}
+          className="text-sm hover:opacity-80"
+        >
           ← Contacts
         </Link>
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{contact.name}</h1>
+        <h1 style={{ color: 'var(--text-primary)' }} className="text-2xl font-bold">{contact.name}</h1>
         <HealthBadge score={contact.health_score} />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+      <div
+        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+        className="rounded-xl p-6 space-y-4"
+      >
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-1">Name</label>
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            className="w-full px-3 py-2 rounded-lg text-sm"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-1">Role</label>
           <input
             value={form.role}
             onChange={(e) => setForm({ ...form, role: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            className="w-full px-3 py-2 rounded-lg text-sm"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-1">Email</label>
           <input
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            className="w-full px-3 py-2 rounded-lg text-sm"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Tier</label>
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-1">Tier</label>
           <select
             value={form.tier}
             onChange={(e) => setForm({ ...form, tier: Number(e.target.value) })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            className="w-full px-3 py-2 rounded-lg text-sm"
           >
             <option value={1}>Tier 1 — VIP</option>
             <option value={2}>Tier 2 — Active</option>
@@ -127,26 +138,31 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Last Contacted</label>
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-1">Last Contacted</label>
           <input
             type="date"
             value={form.last_contacted_at}
             onChange={(e) => setForm({ ...form, last_contacted_at: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            className="w-full px-3 py-2 rounded-lg text-sm"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-1">Notes</label>
           <textarea
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            className="w-full px-3 py-2 rounded-lg text-sm resize-none"
           />
         </div>
 
         {saveError && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <div
+            style={{ background: 'var(--red-subtle)', border: '1px solid var(--red)', color: 'var(--red)' }}
+            className="p-3 rounded-lg text-sm"
+          >
             {saveError}
           </div>
         )}
@@ -154,7 +170,8 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          style={{ background: 'var(--accent)' }}
+          className="w-full py-2 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {saved ? 'Saved!' : saving ? 'Saving...' : 'Save'}
         </button>
