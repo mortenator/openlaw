@@ -87,33 +87,41 @@ function CreateCronModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl border border-gray-200 shadow-lg w-full max-w-md p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">New Scan</h2>
+      <div
+        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+        className="rounded-xl shadow-lg w-full max-w-md p-6"
+      >
+        <h2 style={{ color: 'var(--text-primary)' }} className="text-lg font-bold mb-4">New Scan</h2>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <div
+            style={{ background: 'var(--red-subtle)', border: '1px solid var(--red)', color: 'var(--red)' }}
+            className="mb-4 p-3 rounded-lg text-sm"
+          >
             {error}
           </div>
         )}
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-1">Name</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => updateField('name', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+              className="w-full px-3 py-2 rounded-lg text-sm"
               placeholder="e.g. Morning market scan"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Job Type</label>
+            <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-1">Job Type</label>
             <select
               value={form.job_type}
               onChange={(e) => updateField('job_type', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+              className="w-full px-3 py-2 rounded-lg text-sm"
             >
               {JOB_TYPES.map((jt) => (
                 <option key={jt.value} value={jt.value}>
@@ -124,7 +132,7 @@ function CreateCronModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Schedule</label>
+            <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-2">Schedule</label>
             <div className="space-y-2">
               {SCHEDULE_PRESETS.map((preset) => (
                 <label key={preset.value} className="flex items-center gap-2 cursor-pointer">
@@ -134,10 +142,10 @@ function CreateCronModal({
                     value={preset.value}
                     checked={form.cron_expression === preset.value}
                     onChange={() => updateField('cron_expression', preset.value)}
-                    className="text-blue-600 focus:ring-blue-500"
+                    style={{ accentColor: 'var(--accent)' }}
                   />
-                  <span className="text-sm text-gray-700">{preset.label}</span>
-                  <span className="text-xs text-gray-400 font-mono">{preset.value}</span>
+                  <span style={{ color: 'var(--text-secondary)' }} className="text-sm">{preset.label}</span>
+                  <span style={{ color: 'var(--text-tertiary)' }} className="text-xs font-mono">{preset.value}</span>
                 </label>
               ))}
             </div>
@@ -145,14 +153,15 @@ function CreateCronModal({
 
           {form.job_type === 'market_brief' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Keywords <span className="text-gray-400 font-normal">(comma-separated)</span>
+              <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-medium mb-1">
+                Keywords <span style={{ color: 'var(--text-tertiary)' }} className="font-normal">(comma-separated)</span>
               </label>
               <input
                 type="text"
                 value={form.keywords}
                 onChange={(e) => updateField('keywords', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                className="w-full px-3 py-2 rounded-lg text-sm"
                 placeholder="e.g. M&A, private equity, restructuring"
               />
             </div>
@@ -163,14 +172,16 @@ function CreateCronModal({
           <button
             onClick={onClose}
             disabled={submitting}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            className="px-4 py-2 text-sm font-medium rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            style={{ background: 'var(--accent)' }}
+            className="px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {submitting ? 'Creating...' : 'Create'}
           </button>
@@ -221,10 +232,11 @@ export default function CronsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Scheduled Jobs</h1>
+        <h1 style={{ color: 'var(--text-primary)' }} className="text-2xl font-bold">Scheduled Jobs</h1>
         <button
           onClick={() => setShowCreate(true)}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+          style={{ background: 'var(--accent)' }}
+          className="px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity"
         >
           New scan
         </button>
@@ -239,38 +251,50 @@ export default function CronsPage() {
       )}
 
       {loading ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 animate-pulse">
+        <div
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-tertiary)' }}
+          className="rounded-xl p-8 text-center animate-pulse"
+        >
           Loading...
         </div>
       ) : crons.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
+        <div
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+          className="rounded-xl p-8 text-center text-sm"
+        >
           No cron jobs configured
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+          className="rounded-xl overflow-hidden"
+        >
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Schedule</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Job Type</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Last Run</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
+            <thead>
+              <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Name</th>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Schedule</th>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Job Type</th>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Last Run</th>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {crons.map((cron) => (
-                <tr key={cron.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{cron.name}</td>
-                  <td className="px-4 py-3 font-mono text-gray-600 text-xs">{cron.cron_expression}</td>
-                  <td className="px-4 py-3 text-gray-600">{cron.job_type}</td>
-                  <td className="px-4 py-3 text-gray-500">{formatDate(cron.last_run_at)}</td>
+                <tr
+                  key={cron.id}
+                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <td style={{ color: 'var(--text-primary)' }} className="px-4 py-3 font-medium">{cron.name}</td>
+                  <td style={{ color: 'var(--text-secondary)' }} className="px-4 py-3 font-mono text-xs">{cron.cron_expression}</td>
+                  <td style={{ color: 'var(--text-secondary)' }} className="px-4 py-3">{cron.job_type}</td>
+                  <td style={{ color: 'var(--text-tertiary)' }} className="px-4 py-3">{formatDate(cron.last_run_at)}</td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => handleToggle(cron)}
-                      className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                        cron.is_active ? 'bg-blue-600' : 'bg-gray-200'
-                      }`}
+                      style={{ background: cron.is_active ? 'var(--accent)' : 'var(--surface)' }}
+                      className="relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
