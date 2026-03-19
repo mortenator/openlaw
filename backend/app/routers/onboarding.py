@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.database import supabase
 from app.deps import get_current_user
+from app.services.paperclip import provision_user as paperclip_provision_user
 
 logger = logging.getLogger(__name__)
 
@@ -447,6 +448,30 @@ def _run_onboarding_ingestion(user_id: str) -> None:
 
         # 3. Generate USER.md and other agent configs
         _generate_agent_configs(user_id, user_row, answers)
+
+        # 3a. Provision Paperclip company + agent for this user.
+        # _run_onboarding_ingestion is a sync background task (no running event loop),
+        # so asyncio.run() is safe here.
+        try:
+            full_name = (
+                user_row.get("name")
+                or f"{user_row.get('first_name', '')} {user_row.get('last_name', '')}".strip()
+                or "Unknown"
+            )
+            asyncio.run(
+                paperclip_provision_user(
+                    user_id=user_id,
+                    user_name=full_name,
+                    firm=user_row.get("firm"),
+                )
+            )
+        except Exception:
+            logger.warning(
+                "Paperclip provisioning failed for user %s — continuing onboarding. "
+                "Re-run bootstrap_paperclip.py to provision manually.",
+                user_id,
+                exc_info=True,
+            )
 
         # 4. Update practice_area on user row
         practice_areas = answers.get("step_2", [])
@@ -1010,6 +1035,26 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
             status_code=500,
             detail=f"Failed to generate agent configs: {exc}",
         ) from exc
+
+    # Provision Paperclip company + agent (best-effort — does not fail the request)
+    try:
+        legacy_name = (
+            updated_user_row.get("name")
+            or f"{updated_user_row.get('first_name', '')} {updated_user_row.get('last_name', '')}".strip()
+            or "Unknown"
+        )
+        await paperclip_provision_user(
+            user_id=user_id,
+            user_name=legacy_name,
+            firm=updated_user_row.get("firm"),
+        )
+    except Exception:
+        logger.warning(
+            "Paperclip provisioning failed for user %s during legacy confirm — "
+            "re-run bootstrap_paperclip.py to provision manually.",
+            user_id,
+            exc_info=True,
+        )
 
     complete_update = supabase.table("users").update({"onboarding_complete": True}).eq("id", user_id).execute()
     if hasattr(complete_update, "error") and complete_update.error:
