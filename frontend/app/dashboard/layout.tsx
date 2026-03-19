@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic"
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api'
 import Sidebar from '@/components/layout/Sidebar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -11,12 +12,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
         router.push('/login')
-      } else {
-        setReady(true)
+        return
       }
+
+      // Check onboarding completion — redirect to onboarding if not done
+      try {
+        const status = await api.onboarding.status(session.access_token)
+        if (!status.complete) {
+          router.push('/onboarding/card')
+          return
+        }
+      } catch {
+        // If the check fails, let them through — don't block the dashboard
+      }
+
+      setReady(true)
     })
   }, [router])
 
