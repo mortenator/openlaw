@@ -990,6 +990,26 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     delivery_schedule = _extract_delivery_schedule(answers.get("5", ""))
     tracking_gap = _sanitize(answers.get("6", ""))
 
+    # Seed tracked_firms from chat step 3 (target companies)
+    for company_name in watchlist_companies:
+        try:
+            supabase.table("tracked_firms").upsert(
+                {"user_id": user_id, "name": company_name, "is_watchlist": True},
+                on_conflict="user_id,name",
+            ).execute()
+        except Exception:
+            logger.warning("Failed to seed company %s for user %s", company_name, user_id)
+
+    # Seed contact from chat step 4 (relationship flag — a person's name)
+    contact_name = _sanitize(answers.get("4", ""), max_len=200)
+    if contact_name:
+        try:
+            supabase.table("contacts").insert(
+                {"user_id": user_id, "name": contact_name, "tier": 2}
+            ).execute()
+        except Exception:
+            logger.warning("Failed to seed contact %s for user %s", contact_name, user_id)
+
     structured_update = supabase.table("users").update(
         {
             "deal_types": deal_types,
