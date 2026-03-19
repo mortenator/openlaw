@@ -155,7 +155,7 @@ async def _exec_web_search(tool_input: dict, *, brave_api_key: str, **_kw) -> An
         "Accept-Encoding": "gzip",
         "X-Subscription-Token": brave_api_key,
     }
-    params: dict[str, Any] = {"q": query, "count": 5}
+    params: dict[str, Any] = {"q": query, "count": 3}
     brave_freshness = freshness_map.get(freshness, "pm")
     if brave_freshness:
         params["freshness"] = brave_freshness
@@ -175,7 +175,7 @@ async def _exec_web_search(tool_input: dict, *, brave_api_key: str, **_kw) -> An
                 "url": r.get("url", ""),
                 "snippet": r.get("description", ""),
             }
-            for r in results[:5]
+            for r in results[:3]
         ]
     except Exception as exc:
         log.exception("web_search failed for query=%r", query)

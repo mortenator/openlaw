@@ -18,7 +18,7 @@ from .tools import TOOL_SCHEMAS, execute_tool
 log = logging.getLogger(__name__)
 
 _MODEL = settings.anthropic_model  # configured via ANTHROPIC_MODEL env var, defaults to claude-3-5-sonnet-20241022
-_MAX_TURNS = 8
+_MAX_TURNS = 5
 _MAX_TOKENS = 4096
 
 SYSTEM_PROMPT = """You are OpenLaw, an AI chief of staff for deal lawyers. You help with:

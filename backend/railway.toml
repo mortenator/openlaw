@@ -8,5 +8,6 @@ pythonVersion = "3.11"
 startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
+responseTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
