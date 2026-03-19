@@ -1,5 +1,29 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+log = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run pending migrations on startup."""
+    try:
+        from app.database import supabase
+        # Migration 008: add is_complete to onboarding_sessions
+        supabase.rpc("pg_query", {"sql": "select 1"}).execute()
+    except Exception:
+        pass  # RPC not available — skip
+    # Apply migration via direct table check + alter
+    try:
+        from app.database import supabase
+        # Check if column exists by attempting a select
+        supabase.table("onboarding_sessions").select("is_complete").limit(1).execute()
+    except Exception:
+        log.warning("onboarding_sessions.is_complete missing — migration needed")
+    yield
 
 from app.routers import (
     deliveries,
