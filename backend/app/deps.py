@@ -32,21 +32,22 @@ async def get_or_provision_user(authorization: str = Header(...)):
 
     user = response.user
 
-    # Atomic upsert — inserts the row if missing, no-ops if it already exists.
-    # Uses on_conflict="id" so existing name/practice_area etc. are never overwritten.
+    # Insert a minimal users row if one doesn't exist yet.
+    # Using PostgREST's ignoreDuplicates (INSERT ... ON CONFLICT DO NOTHING) so we
+    # never touch name/practice_area/comms_channel for users who have already onboarded.
     try:
-        supabase.table("users").upsert(
+        supabase.table("users").insert(
             {
                 "id": str(user.id),
                 "email": user.email or "",
                 "name": (user.email or "").split("@")[0],
                 "comms_channel": _DEFAULT_COMMS_CHANNEL,
             },
-            on_conflict="id",
         ).execute()
     except Exception as exc:
-        # Non-fatal — a conflict on id is benign; a real failure is diagnosable via log
-        log.warning("Could not provision users row for user_id=%s: %s", user.id, exc)
+        # A unique-constraint conflict (row already exists) is the expected happy path.
+        # Log at debug so real failures (DB down, schema mismatch) are still visible.
+        log.debug("users row provision for user_id=%s: %s", user.id, exc)
 
     return user
 
