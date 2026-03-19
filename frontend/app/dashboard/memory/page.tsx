@@ -36,13 +36,18 @@ export default function MemoryPage() {
     })
   }, [])
 
+  const [saveError, setSaveError] = useState('')
+
   async function handleSave() {
     if (!token) return
     setSaving(true)
+    setSaveError('')
     try {
       await api.agentConfigs.update(token, activeTab, configs[activeTab] ?? '')
       setSavedMsg('Saved!')
       setTimeout(() => setSavedMsg(''), 2000)
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save')
     } finally {
       setSaving(false)
     }
@@ -86,6 +91,14 @@ export default function MemoryPage() {
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             className="flex-1 w-full px-4 py-3 rounded-xl text-sm font-mono resize-none min-h-[400px]"
           />
+          {saveError && (
+            <div
+              style={{ background: 'var(--red-subtle)', border: '1px solid var(--red)', color: 'var(--red)' }}
+              className="mt-2 p-3 rounded-lg text-sm"
+            >
+              {saveError}
+            </div>
+          )}
           <div className="flex items-center gap-3 mt-4">
             <button
               onClick={handleSave}

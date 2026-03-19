@@ -9,6 +9,7 @@ import type { Contact } from '@/lib/types'
 import { HealthBadge } from '@/components/HealthBadge'
 
 export default function ContactDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params
   const [token, setToken] = useState<string | null>(null)
   const [contact, setContact] = useState<Contact | null>(null)
   const [form, setForm] = useState({
@@ -28,7 +29,7 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
       if (!session) return
       const t = session.access_token
       setToken(t)
-      api.contacts.get(t, params.id).then((c) => {
+      api.contacts.get(t, id).then((c) => {
         setContact(c)
         setForm({
           name: c.name,
@@ -44,7 +45,7 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
         setLoadError(err instanceof Error ? err.message : 'Failed to load contact')
       })
     })
-  }, [params.id])
+  }, [id])
 
   const [saveError, setSaveError] = useState('')
 
@@ -53,7 +54,7 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
     setSaving(true)
     setSaveError('')
     try {
-      const updated = await api.contacts.update(token, params.id, {
+      const updated = await api.contacts.update(token, id, {
         ...form,
         tier: Number(form.tier) as 1 | 2 | 3,
         last_contacted_at: form.last_contacted_at || null,
