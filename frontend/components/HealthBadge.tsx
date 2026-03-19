@@ -1,14 +1,25 @@
 export function HealthBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-gray-400 text-sm">—</span>
-  const cls =
-    score < 40
-      ? 'bg-red-100 text-red-700'
-      : score <= 70
-      ? 'bg-yellow-100 text-yellow-700'
-      : 'bg-green-100 text-green-700'
+  if (score === null) {
+    return (
+      <span style={{ color: 'var(--text-tertiary)' }} className="text-sm">
+        —
+      </span>
+    )
+  }
+
+  const label = score >= 70 ? 'Healthy' : score >= 40 ? 'At Risk' : 'Urgent'
+  const bgVar = score >= 70 ? '--green-subtle' : score >= 40 ? '--amber-subtle' : '--red-subtle'
+  const textVar = score >= 70 ? '--green' : score >= 40 ? '--amber' : '--red'
+
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      {score}
+    <span
+      style={{
+        background: `var(${bgVar})`,
+        color: `var(${textVar})`,
+      }}
+      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium"
+    >
+      {score} · {label}
     </span>
   )
 }

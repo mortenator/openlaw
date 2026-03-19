@@ -1,13 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-rgb: 255, 255, 255;
+  --bg: #FFFFFF;
+  --bg-subtle: #F8F9FA;
+  --bg-elevated: #FFFFFF;
+  --surface: #F1F3F5;
+  --border: #E5E7EB;
+  --border-subtle: #F3F4F6;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --text-tertiary: #9CA3AF;
+  --accent: #4F46E5;
+  --accent-hover: #4338CA;
+  --accent-subtle: #EEF2FF;
+  --accent-text: #4F46E5;
+  --green: #10B981;
+  --green-subtle: #ECFDF5;
+  --amber: #F59E0B;
+  --amber-subtle: #FFFBEB;
+  --red: #EF4444;
+  --red-subtle: #FEF2F2;
+  --purple: #8B5CF6;
+  --purple-subtle: #F5F3FF;
+}
+
+[data-theme="dark"] {
+  --bg: #0A0A0F;
+  --bg-subtle: #111118;
+  --bg-elevated: #16161E;
+  --surface: #1E1E28;
+  --border: #2A2A38;
+  --border-subtle: #1E1E28;
+  --text-primary: #F1F1F5;
+  --text-secondary: #A0A0B8;
+  --text-tertiary: #6B6B88;
+  --accent: #6366F1;
+  --accent-hover: #818CF8;
+  --accent-subtle: #1E1B4B;
+  --accent-text: #A5B4FC;
+  --green: #10B981;
+  --green-subtle: #052E16;
+  --amber: #F59E0B;
+  --amber-subtle: #1C1400;
+  --red: #F87171;
+  --red-subtle: #1C0000;
+  --purple: #A78BFA;
+  --purple-subtle: #1E1B4B;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg);
+  color: var(--text-primary);
+  transition: background-color 0.2s, color 0.2s;
 }

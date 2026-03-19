@@ -7,11 +7,20 @@ import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import type { Contact } from '@/lib/types'
 import { HealthBadge } from '@/components/HealthBadge'
+import { Search, Plus } from 'lucide-react'
 
 function TierBadge({ tier }: { tier: number }) {
-  const colors = ['', 'bg-purple-100 text-purple-700', 'bg-blue-100 text-blue-700', 'bg-gray-100 text-gray-700']
+  const styles: Record<number, { bg: string; text: string }> = {
+    1: { bg: '--purple-subtle', text: '--purple' },
+    2: { bg: '--accent-subtle', text: '--accent-text' },
+    3: { bg: '--surface', text: '--text-secondary' },
+  }
+  const s = styles[tier] ?? styles[3]
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[tier] ?? ''}`}>
+    <span
+      style={{ background: `var(${s.bg})`, color: `var(${s.text})` }}
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+    >
       T{tier}
     </span>
   )
@@ -64,56 +73,87 @@ export default function ContactsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
+        <h1
+          style={{ color: 'var(--text-primary)' }}
+          className="text-2xl font-semibold tracking-tight"
+        >
+          Contacts
+        </h1>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+          style={{ background: 'var(--accent)' }}
+          className="px-4 py-2 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
         >
+          <Plus size={16} />
           Add Contact
         </button>
       </div>
 
-      <input
-        type="text"
-        placeholder="Search contacts..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="mb-4 w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
+      {/* Search */}
+      <div className="relative mb-4 max-w-xs">
+        <Search
+          size={16}
+          style={{ color: 'var(--text-tertiary)' }}
+          className="absolute left-3 top-1/2 -translate-y-1/2"
+        />
+        <input
+          type="text"
+          placeholder="Search contacts..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-primary)',
+          }}
+          className="w-full pl-9 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+        />
+      </div>
 
       {loading ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 text-sm animate-pulse">
+        <div
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-tertiary)' }}
+          className="rounded-xl p-8 text-center text-sm animate-pulse"
+        >
           Loading...
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+          className="rounded-xl overflow-hidden"
+        >
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Role</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Tier</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Health</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Last Contact</th>
+            <thead>
+              <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Name</th>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Role</th>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Tier</th>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Health</th>
+                <th style={{ color: 'var(--text-tertiary)' }} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider">Last Contact</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{c.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{c.role ?? '—'}</td>
+                <tr
+                  key={c.id}
+                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <td style={{ color: 'var(--text-primary)' }} className="px-4 py-3 font-medium">{c.name}</td>
+                  <td style={{ color: 'var(--text-secondary)' }} className="px-4 py-3">{c.role ?? '—'}</td>
                   <td className="px-4 py-3">
                     <TierBadge tier={c.tier} />
                   </td>
                   <td className="px-4 py-3">
                     <HealthBadge score={c.health_score} />
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{formatDate(c.last_contacted_at)}</td>
+                  <td style={{ color: 'var(--text-tertiary)' }} className="px-4 py-3">{formatDate(c.last_contacted_at)}</td>
                   <td className="px-4 py-3 text-right">
                     <Link
                       href={`/dashboard/contacts/${c.id}`}
-                      className="text-blue-600 hover:underline text-xs"
+                      style={{ color: 'var(--accent-text)' }}
+                      className="hover:underline text-xs"
                     >
                       Edit
                     </Link>
@@ -122,7 +162,7 @@ export default function ContactsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={6} style={{ color: 'var(--text-tertiary)' }} className="px-4 py-8 text-center">
                     No contacts found
                   </td>
                 </tr>
@@ -132,12 +172,21 @@ export default function ContactsPage() {
         </div>
       )}
 
+      {/* Add Contact Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-semibold mb-4">Add Contact</h2>
+          <div
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+            className="rounded-xl p-6 w-full max-w-md shadow-xl"
+          >
+            <h2 style={{ color: 'var(--text-primary)' }} className="text-lg font-semibold mb-4">
+              Add Contact
+            </h2>
             {createError && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <div
+                style={{ background: 'var(--red-subtle)', color: 'var(--red)' }}
+                className="mb-3 p-3 rounded-lg text-sm"
+              >
                 {createError}
               </div>
             )}
@@ -146,24 +195,28 @@ export default function ContactsPage() {
                 placeholder="Name *"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                className="w-full px-3 py-2 rounded-lg text-sm"
               />
               <input
                 placeholder="Role"
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                className="w-full px-3 py-2 rounded-lg text-sm"
               />
               <input
                 placeholder="Email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                className="w-full px-3 py-2 rounded-lg text-sm"
               />
               <select
                 value={form.tier}
                 onChange={(e) => setForm({ ...form, tier: Number(e.target.value) as 1 | 2 | 3 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                className="w-full px-3 py-2 rounded-lg text-sm"
               >
                 <option value={1}>Tier 1 — VIP</option>
                 <option value={2}>Tier 2 — Active</option>
@@ -173,13 +226,15 @@ export default function ContactsPage() {
             <div className="flex gap-3 mt-4">
               <button
                 onClick={handleCreate}
-                className="flex-1 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                style={{ background: 'var(--accent)' }}
+                className="flex-1 py-2 text-white text-sm rounded-lg hover:opacity-90 transition-opacity"
               >
                 Create
               </button>
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
+                style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                className="flex-1 py-2 text-sm rounded-lg hover:opacity-80 transition-opacity"
               >
                 Cancel
               </button>
