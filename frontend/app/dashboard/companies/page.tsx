@@ -49,7 +49,7 @@ export default function CompaniesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 style={{ color: 'var(--text-primary)' }} className="text-2xl font-bold">Companies</h1>
+        <h1 style={{ color: 'var(--text-primary)' }} className="text-2xl font-semibold tracking-tight">Companies</h1>
         <div className="flex gap-3">
           <div
             style={{ border: '1px solid var(--border)' }}

@@ -90,7 +90,7 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 style={{ color: 'var(--text-primary)' }} className="text-2xl font-bold">{contact.name}</h1>
+        <h1 style={{ color: 'var(--text-primary)' }} className="text-2xl font-semibold tracking-tight">{contact.name}</h1>
         <HealthBadge score={contact.health_score} />
       </div>
 

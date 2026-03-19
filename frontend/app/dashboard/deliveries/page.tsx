@@ -96,7 +96,7 @@ export default function DeliveriesPage() {
     <div>
       <h1
         style={{ color: 'var(--text-primary)' }}
-        className="text-2xl font-bold mb-6"
+        className="text-2xl font-semibold tracking-tight mb-6"
       >
         Deliveries
       </h1>

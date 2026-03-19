@@ -232,7 +232,7 @@ export default function CronsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 style={{ color: 'var(--text-primary)' }} className="text-2xl font-bold">Scheduled Jobs</h1>
+        <h1 style={{ color: 'var(--text-primary)' }} className="text-2xl font-semibold tracking-tight">Scheduled Jobs</h1>
         <button
           onClick={() => setShowCreate(true)}
           style={{ background: 'var(--accent)' }}

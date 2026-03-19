@@ -57,7 +57,7 @@ export default function MemoryPage() {
     <div className="flex flex-col h-full">
       <h1
         style={{ color: 'var(--text-primary)' }}
-        className="text-2xl font-bold mb-4"
+        className="text-2xl font-semibold tracking-tight mb-4"
       >
         Memory & Configuration
       </h1>
