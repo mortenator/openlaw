@@ -473,7 +473,10 @@ def _run_onboarding_ingestion(user_id: str) -> None:
                 exc_info=True,
             )
 
-        # 4. Update practice_area on user row
+        # 4. Provision default cron jobs
+        _provision_default_crons(user_id, list(company_name_to_id.keys()))
+
+        # 5. Update practice_area on user row
         practice_areas = answers.get("step_2", [])
         if isinstance(practice_areas, list):
             clean_areas = [_sanitize(p, max_len=200) for p in practice_areas]
@@ -481,14 +484,14 @@ def _run_onboarding_ingestion(user_id: str) -> None:
                 {"practice_area": clean_areas}
             ).eq("id", user_id).execute()
 
-        # 5. Clear CSV PII from session answers now that contacts are imported
+        # 6. Clear CSV PII from session answers now that contacts are imported
         if "step_4" in answers:
             cleared_answers = {**answers, "step_4": "(imported)"}
             supabase.table("onboarding_sessions").update(
                 {"answers": cleared_answers}
             ).eq("user_id", user_id).execute()
 
-        # 6. Mark onboarding complete (is_complete already set atomically at task start;
+        # 7. Mark onboarding complete (is_complete already set atomically at task start;
         # only update completed_at + updated_at timestamp here)
         now = datetime.now(timezone.utc).isoformat()
         supabase.table("onboarding_sessions").update(
@@ -947,6 +950,42 @@ async def onboarding_chat(
     return response
 
 
+def _provision_default_crons(user_id: str, watchlist_companies: list[str]) -> None:
+    """Create the 3 default cron jobs for a new user."""
+    keywords = watchlist_companies[:20]  # cap to avoid huge configs
+    default_crons = [
+        {
+            "user_id": user_id,
+            "name": "Daily Market Brief",
+            "job_type": "market_brief",
+            "cron_expression": "0 8 * * *",
+            "config": {"keywords": keywords},
+            "is_active": True,
+        },
+        {
+            "user_id": user_id,
+            "name": "Relationship Health Scan",
+            "job_type": "relationship_scan",
+            "cron_expression": "0 8 * * *",
+            "config": {"keywords": []},
+            "is_active": True,
+        },
+        {
+            "user_id": user_id,
+            "name": "Weekly Digest",
+            "job_type": "weekly_digest",
+            "cron_expression": "0 8 * * 1",
+            "config": {"keywords": []},
+            "is_active": True,
+        },
+    ]
+    for cron in default_crons:
+        try:
+            supabase.table("user_crons").insert(cron).execute()
+        except Exception:
+            logger.warning("Failed to provision cron %s for user %s", cron["name"], user_id)
+
+
 @router.post("/confirm")
 async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
     user_id = current_user.id
@@ -1009,6 +1048,9 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
             ).execute()
         except Exception:
             logger.warning("Failed to seed contact %s for user %s", contact_name, user_id)
+
+    # Provision default cron jobs
+    _provision_default_crons(user_id, watchlist_companies)
 
     structured_update = supabase.table("users").update(
         {
