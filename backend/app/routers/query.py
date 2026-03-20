@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections import defaultdict, deque
-from typing import Deque
+from typing import AsyncGenerator, Deque
 
+import anthropic
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 log = logging.getLogger(__name__)
@@ -102,3 +105,63 @@ async def query(payload: QueryRequest, current_user=Depends(get_current_user)) -
         raise HTTPException(status_code=502, detail="Agent error — please try again")
 
     return result
+
+
+@router.post("/stream")
+async def query_stream(
+    payload: QueryRequest, current_user=Depends(get_current_user)
+) -> StreamingResponse:
+    _check_rate_limit(str(current_user.id))
+
+    configs_result = (
+        supabase.table("agent_memory_logs")
+        .select("memory_key,memory_val")
+        .eq("user_id", current_user.id)
+        .in_("memory_key", ["USER.md", "MEMORY.md"])
+        .execute()
+    )
+    rows = [
+        {
+            "file_name": r["memory_key"],
+            "content": (
+                r["memory_val"].get("content", "")
+                if isinstance(r["memory_val"], dict)
+                else ""
+            ),
+        }
+        for r in (configs_result.data or [])
+    ]
+    user_context = _build_user_context(rows)
+
+    system_prompt = (
+        "You are OpenLaw, an AI chief of staff for a senior deal lawyer. "
+        "You help with BD intelligence: relationship signals, market research, deal tracking.\n\n"
+        "Format your responses using Markdown — use headers (##), bullet lists, bold (**text**), "
+        "and tables where appropriate. Be concise and action-oriented.\n\n"
+        f"User context:\n{user_context}"
+    )
+
+    async def token_stream() -> AsyncGenerator[str, None]:
+        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        try:
+            async with client.messages.stream(
+                model=settings.anthropic_model,
+                max_tokens=2048,
+                system=system_prompt,
+                messages=[{"role": "user", "content": payload.message}],
+            ) as stream:
+                async for text in stream.text_stream:
+                    yield f"data: {json.dumps({'token': text})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as exc:
+            log.exception("Streaming agent failed for user_id=%s", current_user.id)
+            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+
+    return StreamingResponse(
+        token_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
