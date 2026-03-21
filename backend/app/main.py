@@ -10,13 +10,20 @@ log = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run pending migrations on startup, then start the cron scheduler."""
+    from app.database import supabase
+
+    # Migration: trigger_summary on outreach_suggestions
     try:
-        from app.database import supabase
-        supabase.rpc("pg_query", {"sql": "select 1"}).execute()
+        supabase.table("outreach_suggestions").select("trigger_summary").limit(1).execute()
     except Exception:
-        pass
+        log.warning("outreach_suggestions.trigger_summary missing — applying migration")
+        try:
+            supabase.rpc("exec_sql", {"sql": "ALTER TABLE outreach_suggestions ADD COLUMN IF NOT EXISTS trigger_summary TEXT"}).execute()
+        except Exception:
+            log.warning("Could not apply trigger_summary migration via RPC — apply migration 006 manually")
+
+    # Migration: onboarding_sessions.is_complete
     try:
-        from app.database import supabase
         supabase.table("onboarding_sessions").select("is_complete").limit(1).execute()
     except Exception:
         log.warning("onboarding_sessions.is_complete missing — migration needed")

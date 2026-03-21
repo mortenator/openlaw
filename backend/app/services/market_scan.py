@@ -8,7 +8,7 @@ from app.config import settings  # used by fetch_signals for brave_api_key
 
 log = logging.getLogger(__name__)
 
-_BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/news/search"
+_BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 _MAX_KEYWORDS = 3
 _CLASSIFY_MODEL = "claude-3-haiku-20240307"
 
@@ -34,7 +34,8 @@ async def fetch_signals(query: str, count: int = 10) -> list[dict]:
         response.raise_for_status()
         data = response.json()
 
-    return data.get("results", [])
+    # Web search returns results under data["web"]["results"]
+    return data.get("web", {}).get("results", [])
 
 
 async def classify_signal_type(
