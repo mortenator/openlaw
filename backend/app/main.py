@@ -9,21 +9,25 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Run pending migrations on startup."""
+    """Run pending migrations on startup, then start the cron scheduler."""
     try:
         from app.database import supabase
-        # Migration 008: add is_complete to onboarding_sessions
         supabase.rpc("pg_query", {"sql": "select 1"}).execute()
     except Exception:
-        pass  # RPC not available — skip
-    # Apply migration via direct table check + alter
+        pass
     try:
         from app.database import supabase
-        # Check if column exists by attempting a select
         supabase.table("onboarding_sessions").select("is_complete").limit(1).execute()
     except Exception:
         log.warning("onboarding_sessions.is_complete missing — migration needed")
+
+    # Start in-process cron scheduler
+    from app.scheduler import start_scheduler, stop_scheduler
+    start_scheduler()
+
     yield
+
+    stop_scheduler()
 
 from app.routers import (
     deliveries,
