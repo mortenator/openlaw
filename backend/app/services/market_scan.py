@@ -27,15 +27,21 @@ async def fetch_signals(query: str, count: int = 10) -> list[dict]:
         "Accept-Encoding": "gzip",
         "X-Subscription-Token": settings.brave_api_key,
     }
-    params = {"q": query, "count": count, "freshness": "pw"}
+    params = {"q": query, "count": count}
 
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.get(_BRAVE_SEARCH_URL, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
 
+    if "error" in data:
+        log.warning("Brave API error: %s", data["error"])
+        return []
+
     # Web search returns results under data["web"]["results"]
-    return data.get("web", {}).get("results", [])
+    results = data.get("web", {}).get("results", [])
+    log.info("Brave search for %r returned %d results", query, len(results))
+    return results
 
 
 async def classify_signal_type(
