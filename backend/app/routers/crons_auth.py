@@ -109,3 +109,40 @@ async def update_cron(
     if not result.data:
         raise HTTPException(status_code=404, detail="Cron not found")
     return result.data[0]
+
+
+@router.post("/{cron_id}/run")
+async def trigger_cron_now(
+    cron_id: str,
+    current_user=Depends(get_current_user),
+) -> dict:
+    """Manually trigger a cron job immediately."""
+    from app.config import settings
+    from app.services.agent_runner import run_job
+
+    result = (
+        supabase.table("user_crons")
+        .select("*")
+        .eq("id", cron_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Cron not found")
+
+    cron = result.data[0]
+    try:
+        job_result = await run_job(
+            job_type=cron["job_type"],
+            user_id=str(current_user.id),
+            supabase_admin=supabase,
+            settings=settings,
+            cron_id=cron_id,
+        )
+        from datetime import datetime, timezone
+        supabase.table("user_crons").update(
+            {"last_run_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("id", cron_id).execute()
+        return {"status": "ok", "job_type": cron["job_type"], **job_result}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Job failed: {exc}")
