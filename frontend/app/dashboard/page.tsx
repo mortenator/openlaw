@@ -231,7 +231,7 @@ export default function DashboardPage() {
                       style={{ background: `var(${style.bg})`, color: `var(${style.text})` }}
                       className="inline-block px-2 py-0.5 rounded-full text-xs font-medium mb-2"
                     >
-                      {sig.source ?? sig.type.replace(/_/g, ' ')}
+                      {((sig.source ?? sig.type ?? 'general_news').replace(/_/g, ' '))}
                     </span>
                     {sig.url ?? sig.source_url ? (
                       <a

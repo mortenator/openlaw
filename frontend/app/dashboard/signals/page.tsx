@@ -86,7 +86,7 @@ export default function SignalsPage() {
                         style={{ background: `var(${colors.bg})`, color: `var(${colors.text})` }}
                         className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
                       >
-                        {sig.source ?? sig.type.replace(/_/g, ' ')}
+                        {((sig.source ?? sig.type ?? 'general_news').replace(/_/g, ' '))}
                       </span>
                     </td>
                     <td style={{ color: 'var(--text-primary)' }} className="px-4 py-3 font-medium max-w-xs">
