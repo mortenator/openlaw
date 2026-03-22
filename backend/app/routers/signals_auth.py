@@ -139,6 +139,14 @@ Respond with only valid JSON, no markdown fences."""
     return {**sig, "raw_data": raw_data}
 
 
+@router.delete("/{signal_id}", status_code=204)
+async def delete_signal(
+    signal_id: str,
+    current_user=Depends(get_current_user),
+) -> None:
+    supabase.table("signals").delete().eq("id", signal_id).eq("user_id", current_user.id).execute()
+
+
 @router.post("", status_code=201)
 async def create_signal(
     payload: SignalCreate,
