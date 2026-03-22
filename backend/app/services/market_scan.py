@@ -120,7 +120,7 @@ async def scan_market_for_user(
                     existing = (
                         supabase_admin.table("signals")
                         .select("id")
-                        .eq("source_url", source_url)
+                        .eq("url", source_url)
                         .eq("user_id", user_id)
                         .limit(1)
                         .execute()
@@ -159,10 +159,10 @@ async def scan_market_for_user(
                     {
                         "user_id": user_id,
                         "company_id": company["id"],
-                        "type": signal_type,
+                        "source": signal_type,
                         "headline": article.get("title", ""),
-                        "source_url": article.get("url"),
-                        "summary": article.get("description"),
+                        "url": article.get("url"),
+                        "summary": article.get("description") or article.get("extra", {}).get("snippet"),
                     }
                 ).execute()
                 inserted += 1
