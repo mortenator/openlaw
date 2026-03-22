@@ -1,12 +1,12 @@
 'use client'
 export const dynamic = "force-dynamic"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import type { OutreachSuggestion, Signal, Contact } from '@/lib/types'
 import { HealthBadge } from '@/components/HealthBadge'
-import { Users, Send, Zap, Activity } from 'lucide-react'
+import { Users, Send, Zap, Activity, X, ExternalLink, ArrowUpRight } from 'lucide-react'
 
 const SIGNAL_STYLES: Record<string, { bg: string; text: string }> = {
   new_gc: { bg: '--purple-subtle', text: '--purple' },
@@ -23,6 +23,8 @@ export default function DashboardPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [atRiskContacts, setAtRiskContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -221,11 +223,17 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {signals.map((sig) => {
                 const style = SIGNAL_STYLES[sig.source || "general_news"] ?? SIGNAL_STYLES.general_news
+                const isSelected = selectedSignal?.id === sig.id
                 return (
                   <div
                     key={sig.id}
-                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
-                    className="rounded-xl p-4"
+                    onClick={() => setSelectedSignal(isSelected ? null : sig)}
+                    style={{
+                      background: isSelected ? 'var(--surface)' : 'var(--bg-elevated)',
+                      border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                      cursor: 'pointer',
+                    }}
+                    className="rounded-xl p-4 transition-all hover:opacity-90"
                   >
                     <span
                       style={{ background: `var(${style.bg})`, color: `var(${style.text})` }}
@@ -233,23 +241,11 @@ export default function DashboardPage() {
                     >
                       {(sig.source || "general_news").replace(/_/g, ' ')}
                     </span>
-                    {sig.url ? (
-                      <a
-                        href={sig.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: 'var(--accent-text)' }}
-                        className="block text-sm font-medium hover:underline"
-                      >
-                        {sig.headline}
-                      </a>
-                    ) : (
-                      <div style={{ color: 'var(--text-primary)' }} className="text-sm font-medium">
-                        {sig.headline}
-                      </div>
-                    )}
+                    <div style={{ color: 'var(--text-primary)' }} className="text-sm font-medium">
+                      {sig.headline}
+                    </div>
                     {sig.summary && (
-                      <div style={{ color: 'var(--text-tertiary)' }} className="text-xs mt-1">
+                      <div style={{ color: 'var(--text-tertiary)' }} className="text-xs mt-1 line-clamp-2">
                         {sig.summary}
                       </div>
                     )}
@@ -305,6 +301,157 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Signal detail panel */}
+      {selectedSignal && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setSelectedSignal(null)}
+          />
+          {/* Panel */}
+          <div
+            ref={panelRef}
+            style={{
+              background: 'var(--bg-elevated)',
+              borderLeft: '1px solid var(--border)',
+              width: '400px',
+            }}
+            className="fixed top-0 right-0 h-full z-40 flex flex-col shadow-2xl"
+          >
+            {/* Panel header */}
+            <div
+              style={{ borderBottom: '1px solid var(--border)' }}
+              className="flex items-center justify-between px-6 py-4"
+            >
+              <div>
+                <span
+                  style={{
+                    background: `var(${(SIGNAL_STYLES[selectedSignal.source || 'general_news'] ?? SIGNAL_STYLES.general_news).bg})`,
+                    color: `var(${(SIGNAL_STYLES[selectedSignal.source || 'general_news'] ?? SIGNAL_STYLES.general_news).text})`,
+                  }}
+                  className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+                >
+                  {(selectedSignal.source || 'general_news').replace(/_/g, ' ')}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedSignal(null)}
+                style={{ color: 'var(--text-tertiary)' }}
+                className="hover:opacity-70 transition-opacity cursor-pointer p-1 rounded"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Panel body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {/* Headline */}
+              <h2
+                style={{ color: 'var(--text-primary)' }}
+                className="text-base font-semibold leading-snug"
+              >
+                {selectedSignal.headline}
+              </h2>
+
+              {/* Summary */}
+              {selectedSignal.summary && (
+                <div>
+                  <div
+                    style={{ color: 'var(--text-tertiary)' }}
+                    className="text-xs font-medium uppercase tracking-wider mb-2"
+                  >
+                    Summary
+                  </div>
+                  <p
+                    style={{ color: 'var(--text-secondary)' }}
+                    className="text-sm leading-relaxed"
+                  >
+                    {selectedSignal.summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Source / URL */}
+              {selectedSignal.url && (
+                <div>
+                  <div
+                    style={{ color: 'var(--text-tertiary)' }}
+                    className="text-xs font-medium uppercase tracking-wider mb-2"
+                  >
+                    Source
+                  </div>
+                  <a
+                    href={selectedSignal.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--accent-text)',
+                    }}
+                    className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm hover:opacity-80 transition-opacity"
+                  >
+                    <ExternalLink size={14} />
+                    <span className="truncate flex-1">{selectedSignal.url.replace(/^https?:\/\//, '').split('/')[0]}</span>
+                    <ArrowUpRight size={14} className="flex-shrink-0" />
+                  </a>
+                </div>
+              )}
+
+              {/* Metadata */}
+              <div
+                style={{ borderTop: '1px solid var(--border)' }}
+                className="pt-4 space-y-2"
+              >
+                {selectedSignal.created_at && (
+                  <div className="flex justify-between text-xs">
+                    <span style={{ color: 'var(--text-tertiary)' }}>Captured</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      {new Date(selectedSignal.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
+                {selectedSignal.relevance_score !== null && selectedSignal.relevance_score !== undefined && (
+                  <div className="flex justify-between text-xs">
+                    <span style={{ color: 'var(--text-tertiary)' }}>Relevance</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      {Math.round((selectedSignal.relevance_score) * 100)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Panel footer */}
+            <div
+              style={{ borderTop: '1px solid var(--border)' }}
+              className="px-6 py-4"
+            >
+              {selectedSignal.url ? (
+                <a
+                  href={selectedSignal.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ background: 'var(--accent)' }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  Read Full Article
+                  <ExternalLink size={14} />
+                </a>
+              ) : (
+                <div
+                  style={{ color: 'var(--text-tertiary)' }}
+                  className="text-xs text-center"
+                >
+                  No source URL available
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
