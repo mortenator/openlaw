@@ -105,6 +105,7 @@ async def enrich_signal(
 Based on the above, provide a structured analysis in this exact JSON format:
 {
   "full_summary": "3-5 sentence detailed summary of what happened and why it matters for deal lawyers",
+  "article_body": "A detailed 4-6 paragraph journalistic write-up of the full story. Cover: what happened, who is involved, deal terms or investment size if known, strategic rationale, market context, and any reactions. Write as if for a legal industry newsletter. Be specific and substantive.",
   "key_points": ["point 1", "point 2", "point 3", "point 4"],
   "why_it_matters": "1-2 sentences on the BD / legal implication — who might need counsel, what transactions this could trigger",
   "sources": [{"title": "source title or domain", "url": "the url"}]

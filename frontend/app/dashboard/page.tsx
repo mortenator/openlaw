@@ -400,6 +400,18 @@ export default function DashboardPage() {
                     </div>
                   )}
 
+                  {/* Article body */}
+                  {enrichedData.article_body && (
+                    <div>
+                      <div style={{ color: 'var(--text-tertiary)' }} className="text-xs font-medium uppercase tracking-wider mb-3">Full Story</div>
+                      <div style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--border)' }} className="pl-4 space-y-3">
+                        {enrichedData.article_body.split('\n\n').filter(Boolean).map((para: string, i: number) => (
+                          <p key={i} className="text-sm leading-relaxed">{para}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Key points */}
                   {enrichedData.key_points?.length > 0 && (
                     <div>
