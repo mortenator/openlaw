@@ -6,7 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import type { OutreachSuggestion, Signal, Contact } from '@/lib/types'
 import { HealthBadge } from '@/components/HealthBadge'
-import { Users, Send, Zap, Activity, X, ExternalLink, ArrowUpRight } from 'lucide-react'
+import { Users, Send, Zap, Activity, X, ExternalLink, ArrowUpRight, Loader2 } from 'lucide-react'
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 const SIGNAL_STYLES: Record<string, { bg: string; text: string }> = {
   new_gc: { bg: '--purple-subtle', text: '--purple' },
@@ -24,6 +26,8 @@ export default function DashboardPage() {
   const [atRiskContacts, setAtRiskContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null)
+  const [enrichedData, setEnrichedData] = useState<Record<string, any> | null>(null)
+  const [enriching, setEnriching] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -50,6 +54,32 @@ export default function DashboardPage() {
       }).catch(() => setLoading(false))
     })
   }, [])
+
+  async function openSignal(sig: Signal) {
+    setSelectedSignal(sig)
+    setEnrichedData(null)
+    if (!token) return
+    setEnriching(true)
+    try {
+      const res = await fetch(`${BASE_URL}/signals/${sig.id}/enrich`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setEnrichedData(data.raw_data || null)
+      }
+    } catch {
+      // fallback — show what we have
+    } finally {
+      setEnriching(false)
+    }
+  }
+
+  function closeSignal() {
+    setSelectedSignal(null)
+    setEnrichedData(null)
+  }
 
   function approve(id: string) {
     if (!token) return
@@ -227,7 +257,7 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={sig.id}
-                    onClick={() => setSelectedSignal(isSelected ? null : sig)}
+                    onClick={() => isSelected ? closeSignal() : openSignal(sig)}
                     style={{
                       background: isSelected ? 'var(--surface)' : 'var(--bg-elevated)',
                       border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
@@ -308,7 +338,7 @@ export default function DashboardPage() {
           {/* Backdrop */}
           <div
             className="fixed inset-0 z-30"
-            onClick={() => setSelectedSignal(null)}
+            onClick={closeSignal}
           />
           {/* Panel */}
           <div
@@ -337,7 +367,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <button
-                onClick={() => setSelectedSignal(null)}
+                onClick={closeSignal}
                 style={{ color: 'var(--text-tertiary)' }}
                 className="hover:opacity-70 transition-opacity cursor-pointer p-1 rounded"
               >
@@ -355,70 +385,87 @@ export default function DashboardPage() {
                 {selectedSignal.headline}
               </h2>
 
-              {/* Summary */}
-              {selectedSignal.summary && (
-                <div>
-                  <div
-                    style={{ color: 'var(--text-tertiary)' }}
-                    className="text-xs font-medium uppercase tracking-wider mb-2"
-                  >
-                    Summary
-                  </div>
-                  <p
-                    style={{ color: 'var(--text-secondary)' }}
-                    className="text-sm leading-relaxed"
-                  >
-                    {selectedSignal.summary}
-                  </p>
+              {enriching ? (
+                <div className="flex items-center gap-3 py-8 justify-center">
+                  <Loader2 size={18} style={{ color: 'var(--accent)' }} className="animate-spin" />
+                  <span style={{ color: 'var(--text-tertiary)' }} className="text-sm">Enriching with Claude...</span>
                 </div>
-              )}
+              ) : enrichedData ? (
+                <>
+                  {/* Full summary */}
+                  {enrichedData.full_summary && (
+                    <div>
+                      <div style={{ color: 'var(--text-tertiary)' }} className="text-xs font-medium uppercase tracking-wider mb-2">Summary</div>
+                      <p style={{ color: 'var(--text-secondary)' }} className="text-sm leading-relaxed">{enrichedData.full_summary}</p>
+                    </div>
+                  )}
 
-              {/* Source / URL */}
-              {selectedSignal.url && (
-                <div>
-                  <div
-                    style={{ color: 'var(--text-tertiary)' }}
-                    className="text-xs font-medium uppercase tracking-wider mb-2"
-                  >
-                    Source
+                  {/* Key points */}
+                  {enrichedData.key_points?.length > 0 && (
+                    <div>
+                      <div style={{ color: 'var(--text-tertiary)' }} className="text-xs font-medium uppercase tracking-wider mb-2">Key Points</div>
+                      <ul className="space-y-2">
+                        {enrichedData.key_points.map((pt: string, i: number) => (
+                          <li key={i} className="flex gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                            <span style={{ color: 'var(--accent)' }} className="mt-0.5 flex-shrink-0">•</span>
+                            <span>{pt}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Why it matters */}
+                  {enrichedData.why_it_matters && (
+                    <div style={{ background: 'var(--accent-subtle)', borderLeft: '3px solid var(--accent)' }} className="px-4 py-3 rounded-r-lg">
+                      <div style={{ color: 'var(--accent-text)' }} className="text-xs font-semibold uppercase tracking-wider mb-1">Why It Matters</div>
+                      <p style={{ color: 'var(--accent-text)' }} className="text-sm leading-relaxed opacity-90">{enrichedData.why_it_matters}</p>
+                    </div>
+                  )}
+
+                  {/* Sources */}
+                  {enrichedData.sources?.length > 0 && (
+                    <div>
+                      <div style={{ color: 'var(--text-tertiary)' }} className="text-xs font-medium uppercase tracking-wider mb-2">Sources</div>
+                      <div className="space-y-2">
+                        {enrichedData.sources.map((src: {title: string; url: string}, i: number) => (
+                          src.url ? (
+                            <a
+                              key={i}
+                              href={src.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--accent-text)' }}
+                              className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm hover:opacity-80 transition-opacity"
+                            >
+                              <ExternalLink size={13} className="flex-shrink-0" />
+                              <span className="truncate flex-1">{src.title || src.url.replace(/^https?:\/\//, '').split('/')[0]}</span>
+                              <ArrowUpRight size={13} className="flex-shrink-0" />
+                            </a>
+                          ) : (
+                            <div key={i} style={{ color: 'var(--text-secondary)' }} className="text-sm px-3 py-2">{src.title}</div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Fallback: just show the raw summary */
+                selectedSignal.summary && (
+                  <div>
+                    <div style={{ color: 'var(--text-tertiary)' }} className="text-xs font-medium uppercase tracking-wider mb-2">Summary</div>
+                    <p style={{ color: 'var(--text-secondary)' }} className="text-sm leading-relaxed">{selectedSignal.summary}</p>
                   </div>
-                  <a
-                    href={selectedSignal.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--accent-text)',
-                    }}
-                    className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm hover:opacity-80 transition-opacity"
-                  >
-                    <ExternalLink size={14} />
-                    <span className="truncate flex-1">{selectedSignal.url.replace(/^https?:\/\//, '').split('/')[0]}</span>
-                    <ArrowUpRight size={14} className="flex-shrink-0" />
-                  </a>
-                </div>
+                )
               )}
 
               {/* Metadata */}
-              <div
-                style={{ borderTop: '1px solid var(--border)' }}
-                className="pt-4 space-y-2"
-              >
+              <div style={{ borderTop: '1px solid var(--border)' }} className="pt-4 space-y-2">
                 {selectedSignal.created_at && (
                   <div className="flex justify-between text-xs">
                     <span style={{ color: 'var(--text-tertiary)' }}>Captured</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      {new Date(selectedSignal.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                )}
-                {selectedSignal.relevance_score !== null && selectedSignal.relevance_score !== undefined && (
-                  <div className="flex justify-between text-xs">
-                    <span style={{ color: 'var(--text-tertiary)' }}>Relevance</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      {Math.round((selectedSignal.relevance_score) * 100)}%
-                    </span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{new Date(selectedSignal.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                   </div>
                 )}
               </div>
