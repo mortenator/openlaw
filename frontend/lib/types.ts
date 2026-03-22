@@ -26,15 +26,13 @@ export interface Company {
 export interface Signal {
   id: string
   user_id: string
-  company_id: string
-  source: string
-  type?: string        // legacy alias, may not exist
+  company_id: string | null
+  source: string | null
   headline: string
   url: string | null
-  source_url?: string | null  // legacy alias
   summary: string | null
+  relevance_score: number | null
   created_at: string
-  company?: Company
 }
 
 export interface OutreachSuggestion {

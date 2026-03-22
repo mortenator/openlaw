@@ -220,7 +220,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {signals.map((sig) => {
-                const style = SIGNAL_STYLES[sig.source ?? sig.type] ?? SIGNAL_STYLES.general_news
+                const style = SIGNAL_STYLES[sig.source || "general_news"] ?? SIGNAL_STYLES.general_news
                 return (
                   <div
                     key={sig.id}
@@ -231,11 +231,11 @@ export default function DashboardPage() {
                       style={{ background: `var(${style.bg})`, color: `var(${style.text})` }}
                       className="inline-block px-2 py-0.5 rounded-full text-xs font-medium mb-2"
                     >
-                      {((sig.source ?? sig.type ?? 'general_news').replace(/_/g, ' '))}
+                      {(sig.source || "general_news").replace(/_/g, ' ')}
                     </span>
-                    {sig.url ?? sig.source_url ? (
+                    {sig.url ? (
                       <a
-                        href={sig.url ?? sig.source_url}
+                        href={sig.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: 'var(--accent-text)' }}
