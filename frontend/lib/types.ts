@@ -27,9 +27,11 @@ export interface Signal {
   id: string
   user_id: string
   company_id: string
-  type: 'new_gc' | 'deal_announced' | 'investment' | 'competitor_move' | 'general_news'
+  source: string
+  type?: string        // legacy alias, may not exist
   headline: string
-  source_url: string | null
+  url: string | null
+  source_url?: string | null  // legacy alias
   summary: string | null
   created_at: string
   company?: Company

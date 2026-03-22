@@ -71,7 +71,7 @@ export default function SignalsPage() {
             </thead>
             <tbody>
               {signals.map((sig) => {
-                const colors = SIGNAL_COLORS[sig.type] ?? SIGNAL_COLORS.general_news
+                const colors = SIGNAL_COLORS[sig.source ?? sig.type] ?? SIGNAL_COLORS.general_news
                 return (
                   <tr
                     key={sig.id}
@@ -86,13 +86,13 @@ export default function SignalsPage() {
                         style={{ background: `var(${colors.bg})`, color: `var(${colors.text})` }}
                         className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
                       >
-                        {sig.type.replace(/_/g, ' ')}
+                        {sig.source ?? sig.type.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td style={{ color: 'var(--text-primary)' }} className="px-4 py-3 font-medium max-w-xs">
-                      {sig.source_url ? (
+                      {sig.url ?? sig.source_url ? (
                         <a
-                          href={sig.source_url}
+                          href={sig.url ?? sig.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{ color: 'var(--accent-text)' }}
