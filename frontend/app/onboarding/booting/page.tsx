@@ -26,20 +26,20 @@ export default function OnboardingBootingPage() {
   const router = useRouter()
   const [visibleCount, setVisibleCount] = useState(0)
   const [ready, setReady] = useState(false)
-  const startedAt = useRef(Date.now())
+  const startedAt = useRef<number>(0)
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const revealTimers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   // Reveal items progressively (pure UI cadence, independent of backend)
   useEffect(() => {
-    BOOT_ITEMS.forEach((_, i) => {
-      const t = setTimeout(
+    const timers = BOOT_ITEMS.map((_, i) =>
+      setTimeout(
         () => setVisibleCount(i + 1),
         ITEM_REVEAL_START_DELAY + i * ITEM_REVEAL_INTERVAL
       )
-      revealTimers.current.push(t)
-    })
-    return () => revealTimers.current.forEach(clearTimeout)
+    )
+    revealTimers.current = timers
+    return () => timers.forEach(clearTimeout)
   }, [])
 
   // Poll backend status until complete (or timeout)
@@ -76,7 +76,10 @@ export default function OnboardingBootingPage() {
     }
 
     // Start polling after a short initial delay (give backend time to kick off)
-    pollTimer.current = setTimeout(checkReady, INITIAL_POLL_DELAY)
+    pollTimer.current = setTimeout(() => {
+      startedAt.current = Date.now()
+      checkReady()
+    }, INITIAL_POLL_DELAY)
 
     return () => {
       cancelled = true
