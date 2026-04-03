@@ -474,7 +474,9 @@ def _run_onboarding_ingestion(user_id: str) -> None:
             )
 
         # 4. Provision default cron jobs
-        _provision_default_crons(user_id, list(company_name_to_id.keys()))
+        # Derive delivery schedule from the user row (populated during step flow or legacy confirm)
+        user_delivery_schedule = user_row.get("delivery_schedule") or "morning"
+        _provision_default_crons(user_id, list(company_name_to_id.keys()), delivery_schedule=user_delivery_schedule)
 
         # 5. Update practice_area on user row
         practice_areas = answers.get("step_2", [])
@@ -950,15 +952,48 @@ async def onboarding_chat(
     return response
 
 
-def _provision_default_crons(user_id: str, watchlist_companies: list[str]) -> None:
-    """Create the 3 default cron jobs for a new user."""
+# Delivery schedule → (daily_brief_cron, relationship_scan_cron, weekly_digest_cron)
+_DELIVERY_CRON_MAP: dict[str, tuple[str, str, str]] = {
+    # morning brief: 7am daily
+    "morning": ("0 7 * * *", "0 7 * * *", "0 7 * * 1"),
+    "morning brief (7am daily)": ("0 7 * * *", "0 7 * * *", "0 7 * * 1"),
+    # evening summary: 6pm daily
+    "evening": ("0 18 * * *", "0 18 * * *", "0 18 * * 1"),
+    "evening summary (6pm daily)": ("0 18 * * *", "0 18 * * *", "0 18 * * 1"),
+    # weekly digest only: Monday 8am, no daily
+    "weekly": ("0 8 * * 1", "0 8 * * 1", "0 8 * * 1"),
+    "weekly digest only": ("0 8 * * 1", "0 8 * * 1", "0 8 * * 1"),
+    # real-time: every hour
+    "real-time": ("0 * * * *", "0 * * * *", "0 8 * * 1"),
+    "real-time alerts": ("0 * * * *", "0 * * * *", "0 8 * * 1"),
+    # dashboard check: 8am daily (passive — still create jobs)
+    "dashboard": ("0 8 * * *", "0 8 * * *", "0 8 * * 1"),
+    "i will check the dashboard": ("0 8 * * *", "0 8 * * *", "0 8 * * 1"),
+}
+_DEFAULT_CRON_SCHEDULE = ("0 8 * * *", "0 8 * * *", "0 8 * * 1")
+
+
+def _provision_default_crons(
+    user_id: str,
+    watchlist_companies: list[str],
+    delivery_schedule: str = "morning",
+) -> None:
+    """Create the 3 default cron jobs for a new user.
+
+    Cron times are derived from the user's delivery_schedule preference.
+    Falls back to 8am daily if the schedule string is unrecognised.
+    """
     keywords = watchlist_companies[:20]  # cap to avoid huge configs
+    schedule_key = (delivery_schedule or "morning").strip().lower()
+    brief_cron, scan_cron, digest_cron = _DELIVERY_CRON_MAP.get(
+        schedule_key, _DEFAULT_CRON_SCHEDULE
+    )
     default_crons = [
         {
             "user_id": user_id,
             "name": "Daily Market Brief",
             "job_type": "market_brief",
-            "cron_expression": "0 8 * * *",
+            "cron_expression": brief_cron,
             "config": {"keywords": keywords},
             "is_active": True,
         },
@@ -966,7 +1001,7 @@ def _provision_default_crons(user_id: str, watchlist_companies: list[str]) -> No
             "user_id": user_id,
             "name": "Relationship Health Scan",
             "job_type": "relationship_scan",
-            "cron_expression": "0 8 * * *",
+            "cron_expression": scan_cron,
             "config": {"keywords": []},
             "is_active": True,
         },
@@ -974,14 +1009,19 @@ def _provision_default_crons(user_id: str, watchlist_companies: list[str]) -> No
             "user_id": user_id,
             "name": "Weekly Digest",
             "job_type": "weekly_digest",
-            "cron_expression": "0 8 * * 1",
+            "cron_expression": digest_cron,
             "config": {"keywords": []},
             "is_active": True,
         },
     ]
     for cron in default_crons:
         try:
-            supabase.table("user_crons").insert(cron).execute()
+            # Upsert on (user_id, job_type) so retries / idempotent calls
+            # do not create duplicate scheduled jobs.
+            supabase.table("user_crons").upsert(
+                cron,
+                on_conflict="user_id,job_type",
+            ).execute()
         except Exception:
             logger.warning("Failed to provision cron %s for user %s", cron["name"], user_id)
 
@@ -1050,7 +1090,7 @@ async def onboarding_confirm(current_user=Depends(get_current_user)) -> dict:
             logger.warning("Failed to seed contact %s for user %s", contact_name, user_id)
 
     # Provision default cron jobs
-    _provision_default_crons(user_id, watchlist_companies)
+    _provision_default_crons(user_id, watchlist_companies, delivery_schedule=delivery_schedule)
 
     structured_update = supabase.table("users").update(
         {
