@@ -1,4 +1,4 @@
--- Migration 010: Create agent_memory_logs table
+-- Migration 010: Create agent_memory_logs table + user_crons unique constraint
 -- Stores per-user agent configuration files (SOUL.md, USER.md, MEMORY.md, HEARTBEAT.md, AGENTS.md)
 -- Generated during onboarding and updatable by the user from the Agent Config page.
 
@@ -32,3 +32,9 @@ begin
   end if;
 end;
 $$;
+
+
+-- Add unique constraint on user_crons (user_id, job_type) so that
+-- _provision_default_crons can upsert idempotently on retry.
+alter table public.user_crons
+  add constraint if not exists user_crons_user_id_job_type_key unique (user_id, job_type);

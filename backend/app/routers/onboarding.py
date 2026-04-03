@@ -1016,7 +1016,12 @@ def _provision_default_crons(
     ]
     for cron in default_crons:
         try:
-            supabase.table("user_crons").insert(cron).execute()
+            # Upsert on (user_id, job_type) so retries / idempotent calls
+            # do not create duplicate scheduled jobs.
+            supabase.table("user_crons").upsert(
+                cron,
+                on_conflict="user_id,job_type",
+            ).execute()
         except Exception:
             logger.warning("Failed to provision cron %s for user %s", cron["name"], user_id)
 
