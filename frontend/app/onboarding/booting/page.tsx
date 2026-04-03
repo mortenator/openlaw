@@ -19,6 +19,8 @@ const ITEM_REVEAL_START_DELAY = 500
 const POLL_INTERVAL = 1500
 // Maximum time to wait for backend before redirecting anyway (ms)
 const MAX_WAIT = 15_000
+// Initial delay before first poll (give backend time to kick off provisioning)
+const INITIAL_POLL_DELAY = 800
 
 export default function OnboardingBootingPage() {
   const router = useRouter()
@@ -57,8 +59,9 @@ export default function OnboardingBootingPage() {
           setReady(true)
           return
         }
-      } catch {
-        // Swallow — keep polling
+      } catch (err) {
+        // Keep polling, but surface errors for observability
+        console.error('[OnboardingBooting] status poll error:', err)
       }
 
       if (!cancelled) {
@@ -73,7 +76,7 @@ export default function OnboardingBootingPage() {
     }
 
     // Start polling after a short initial delay (give backend time to kick off)
-    pollTimer.current = setTimeout(checkReady, 800)
+    pollTimer.current = setTimeout(checkReady, INITIAL_POLL_DELAY)
 
     return () => {
       cancelled = true
@@ -115,10 +118,7 @@ export default function OnboardingBootingPage() {
         </div>
 
         {visibleCount >= BOOT_ITEMS.length && (
-          <p
-            className="text-white/40 text-sm transition-opacity duration-700"
-            style={{ opacity: visibleCount >= BOOT_ITEMS.length ? 1 : 0 }}
-          >
+          <p className="text-white/40 text-sm transition-opacity duration-700">
             You&apos;ll hear from me tomorrow morning.
           </p>
         )}
