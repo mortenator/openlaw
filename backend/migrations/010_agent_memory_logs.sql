@@ -36,5 +36,17 @@ $$;
 
 -- Add unique constraint on user_crons (user_id, job_type) so that
 -- _provision_default_crons can upsert idempotently on retry.
-alter table public.user_crons
-  add constraint if not exists user_crons_user_id_job_type_key unique (user_id, job_type);
+-- Wrapped in a DO block because ADD CONSTRAINT IF NOT EXISTS is not valid
+-- SQL syntax in PostgreSQL — the existence check must be done manually.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'user_crons_user_id_job_type_key'
+      and conrelid = 'public.user_crons'::regclass
+  ) then
+    alter table public.user_crons
+      add constraint user_crons_user_id_job_type_key unique (user_id, job_type);
+  end if;
+end;
+$$;
