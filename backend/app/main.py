@@ -28,6 +28,21 @@ async def lifespan(app: FastAPI):
     except Exception:
         log.warning("onboarding_sessions.is_complete missing — migration needed")
 
+    # Migration: agent_memory_logs table
+    try:
+        supabase.table("agent_memory_logs").select("id").limit(1).execute()
+    except Exception:
+        log.warning("agent_memory_logs table missing — applying migration 010")
+        import pathlib
+        migration_path = pathlib.Path(__file__).parent.parent / "migrations" / "010_agent_memory_logs.sql"
+        if migration_path.exists():
+            try:
+                sql = migration_path.read_text()
+                supabase.rpc("exec_sql", {"sql": sql}).execute()
+                log.info("agent_memory_logs migration applied successfully")
+            except Exception:
+                log.warning("Could not auto-apply migration 010 — run it manually in Supabase SQL Editor")
+
     # Start in-process cron scheduler
     from app.scheduler import start_scheduler, stop_scheduler
     start_scheduler()
