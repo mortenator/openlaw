@@ -88,19 +88,19 @@ async def heartbeat(
         user_id,
         str(body.agent_id),  # truncated — avoid logging full UUID in plaintext
     )
-    await _dispatch_job(job_type=job_type, user_id=user_id, payload=body.context.payload)
+    dispatched = await _dispatch_job(job_type=job_type, user_id=user_id, payload=body.context.payload)
 
-    return HeartbeatResponse(success=True, job_type=job_type, user_id=user_id)
+    return HeartbeatResponse(success=dispatched, job_type=job_type, user_id=user_id)
 
 
-async def _dispatch_job(job_type: str, user_id: str, payload: dict[str, Any]) -> None:
+async def _dispatch_job(job_type: str, user_id: str, payload: dict[str, Any]) -> bool:
     """Dispatch a Paperclip heartbeat to the matching agent_runner job handler."""
     from app.services.agent_runner import run_job
 
     runner_job_type = _HEARTBEAT_TO_RUNNER.get(job_type)
     if runner_job_type is None:
         log.error("No runner mapping for heartbeat job_type=%s", job_type)
-        return
+        return False
 
     log.info(
         "Dispatching heartbeat job_type=%s → runner=%s for user %s",
@@ -116,5 +116,7 @@ async def _dispatch_job(job_type: str, user_id: str, payload: dict[str, Any]) ->
             settings=settings,
         )
         log.info("Heartbeat dispatch OK: job_type=%s user_id=%s", job_type, user_id)
+        return True
     except Exception:
         log.exception("Heartbeat dispatch FAILED: job_type=%s user_id=%s", job_type, user_id)
+        return False

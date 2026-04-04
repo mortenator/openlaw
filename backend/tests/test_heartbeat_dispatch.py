@@ -29,11 +29,21 @@ def _supabase_mock_with_user(user_id: str = USER_ID):
     return mock
 
 
-def _get_client(supabase_mock):
-    """Build a TestClient with patched supabase."""
-    with patch("app.routers.internal.supabase", supabase_mock):
-        from app.main import app
-        return TestClient(app)
+def _settings_mock():
+    """Return a settings mock with a valid internal key."""
+    mock = MagicMock()
+    mock.paperclip_internal_key = VALID_INTERNAL_KEY
+    return mock
+
+
+def _make_app():
+    """Build a minimal FastAPI app with just the internal router."""
+    from fastapi import FastAPI
+    from app.routers.internal import router
+
+    app = FastAPI()
+    app.include_router(router)
+    return app
 
 
 # ---------------------------------------------------------------------------
@@ -64,8 +74,9 @@ async def test_dispatch_job_calls_run_job():
         patch("app.services.agent_runner.run_job", mock_run_job),
     ):
         from app.routers.internal import _dispatch_job
-        await _dispatch_job(job_type="signal_scan", user_id=USER_ID, payload={})
+        result = await _dispatch_job(job_type="signal_scan", user_id=USER_ID, payload={})
 
+    assert result is True
     mock_run_job.assert_awaited_once_with(
         job_type="market_brief",
         user_id=USER_ID,
@@ -84,8 +95,9 @@ async def test_dispatch_job_contact_review():
         patch("app.services.agent_runner.run_job", mock_run_job),
     ):
         from app.routers.internal import _dispatch_job
-        await _dispatch_job(job_type="contact_review", user_id=USER_ID, payload={})
+        result = await _dispatch_job(job_type="contact_review", user_id=USER_ID, payload={})
 
+    assert result is True
     mock_run_job.assert_awaited_once()
     call_kwargs = mock_run_job.await_args.kwargs
     assert call_kwargs["job_type"] == "relationship_scan"
@@ -102,8 +114,9 @@ async def test_dispatch_job_unknown_type_logs_error():
         patch("app.services.agent_runner.run_job", mock_run_job),
     ):
         from app.routers.internal import _dispatch_job
-        await _dispatch_job(job_type="nonexistent_type", user_id=USER_ID, payload={})
+        result = await _dispatch_job(job_type="nonexistent_type", user_id=USER_ID, payload={})
 
+    assert result is False
     mock_run_job.assert_not_awaited()
 
 
@@ -118,8 +131,10 @@ async def test_dispatch_job_run_job_exception_is_caught():
         patch("app.services.agent_runner.run_job", mock_run_job),
     ):
         from app.routers.internal import _dispatch_job
-        # Should not raise
-        await _dispatch_job(job_type="signal_scan", user_id=USER_ID, payload={})
+        # Should not raise — returns False on failure
+        result = await _dispatch_job(job_type="signal_scan", user_id=USER_ID, payload={})
+
+    assert result is False
 
 
 # ---------------------------------------------------------------------------
@@ -177,3 +192,95 @@ async def test_provision_user_enables_heartbeat():
     heartbeat_cfg = runtime_config.get("runtimeConfig", {}).get("heartbeat", {})
     assert heartbeat_cfg["enabled"] is True
     assert heartbeat_cfg["intervalSec"] > 0
+
+
+# ---------------------------------------------------------------------------
+# HTTP-layer endpoint tests
+# ---------------------------------------------------------------------------
+
+def test_heartbeat_invalid_key_returns_401():
+    with (
+        patch("app.routers.internal.supabase", _supabase_mock_with_user()),
+        patch("app.routers.internal.settings", _settings_mock()),
+    ):
+        client = TestClient(_make_app())
+        resp = client.post(
+            "/internal/heartbeat",
+            json={"agent_id": AGENT_ID, "context": {"job_type": "signal_scan"}},
+            headers={"X-Internal-Key": "wrong-key"},
+        )
+    assert resp.status_code == 401
+
+
+def test_heartbeat_unsupported_job_type_returns_422():
+    with (
+        patch("app.routers.internal.supabase", _supabase_mock_with_user()),
+        patch("app.routers.internal.settings", _settings_mock()),
+    ):
+        client = TestClient(_make_app())
+        resp = client.post(
+            "/internal/heartbeat",
+            json={"agent_id": AGENT_ID, "context": {"job_type": "unknown_type"}},
+            headers={"X-Internal-Key": VALID_INTERNAL_KEY},
+        )
+    assert resp.status_code == 422
+
+
+def test_heartbeat_user_not_found_returns_404():
+    mock = MagicMock()
+    from postgrest.exceptions import APIError
+    exc = APIError({"code": "PGRST116", "message": "no rows"})
+    (
+        mock.table.return_value
+        .select.return_value
+        .eq.return_value
+        .single.return_value
+        .execute.side_effect
+    ) = exc
+    with (
+        patch("app.routers.internal.supabase", mock),
+        patch("app.routers.internal.settings", _settings_mock()),
+    ):
+        client = TestClient(_make_app())
+        resp = client.post(
+            "/internal/heartbeat",
+            json={"agent_id": AGENT_ID, "context": {"job_type": "signal_scan"}},
+            headers={"X-Internal-Key": VALID_INTERNAL_KEY},
+        )
+    assert resp.status_code == 404
+
+
+def test_heartbeat_happy_path_returns_200():
+    with (
+        patch("app.routers.internal.supabase", _supabase_mock_with_user()),
+        patch("app.routers.internal.settings", _settings_mock()),
+        patch("app.routers.internal._dispatch_job", new_callable=AsyncMock, return_value=True),
+    ):
+        client = TestClient(_make_app())
+        resp = client.post(
+            "/internal/heartbeat",
+            json={"agent_id": AGENT_ID, "context": {"job_type": "signal_scan"}},
+            headers={"X-Internal-Key": VALID_INTERNAL_KEY},
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["job_type"] == "signal_scan"
+    assert data["user_id"] == USER_ID
+
+
+def test_heartbeat_dispatch_failure_returns_success_false():
+    with (
+        patch("app.routers.internal.supabase", _supabase_mock_with_user()),
+        patch("app.routers.internal.settings", _settings_mock()),
+        patch("app.routers.internal._dispatch_job", new_callable=AsyncMock, return_value=False),
+    ):
+        client = TestClient(_make_app())
+        resp = client.post(
+            "/internal/heartbeat",
+            json={"agent_id": AGENT_ID, "context": {"job_type": "signal_scan"}},
+            headers={"X-Internal-Key": VALID_INTERNAL_KEY},
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is False
