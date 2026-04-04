@@ -77,6 +77,10 @@ async def test_dispatch_job_calls_run_job():
         result = await _dispatch_job(job_type="signal_scan", user_id=USER_ID, payload={}, cron_id="cron-123")
 
     assert result is True
+    # Verify double-fire guard was set before dispatch
+    update_call = mock_sb.table.return_value.update.call_args
+    assert "last_run_at" in update_call.args[0]
+    mock_sb.table.return_value.update.return_value.eq.assert_called_once_with("id", "cron-123")
     mock_run_job.assert_awaited_once_with(
         job_type="market_brief",
         user_id=USER_ID,

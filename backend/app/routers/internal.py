@@ -82,7 +82,6 @@ async def heartbeat(
     user = result.data
     user_id: str = user["id"]
 
-    # Stub dispatch — jobs.py will be wired here in a later phase
     log.info(
         "Heartbeat received: job_type=%s user_id=%s agent_id=%.8s…",
         job_type,

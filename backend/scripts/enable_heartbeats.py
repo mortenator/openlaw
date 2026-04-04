@@ -48,6 +48,9 @@ async def main() -> None:
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if paperclip_api_key:
         headers["Authorization"] = f"Bearer {paperclip_api_key}"
+    elif not settings.paperclip_base_url.startswith(("http://localhost", "http://127.")):
+        log.error("PAPERCLIP_API_KEY must be set for non-local environments — aborting")
+        sys.exit(1)
 
     ok = 0
     errors = 0
