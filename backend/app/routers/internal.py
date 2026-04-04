@@ -1,7 +1,7 @@
 """Internal endpoints called by the Paperclip agent execution backend."""
 import logging
 import secrets
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, status
@@ -28,6 +28,7 @@ _HEARTBEAT_TO_RUNNER: dict[str, str] = {
 class HeartbeatContext(BaseModel):
     job_type: str
     payload: dict[str, Any] = {}
+    cron_id: Optional[str] = None  # populated by Paperclip for jobs needing per-user config
 
 
 class HeartbeatRequest(BaseModel):
@@ -88,13 +89,24 @@ async def heartbeat(
         user_id,
         str(body.agent_id),  # truncated — avoid logging full UUID in plaintext
     )
-    dispatched = await _dispatch_job(job_type=job_type, user_id=user_id, payload=body.context.payload)
+    dispatched = await _dispatch_job(
+        job_type=job_type, user_id=user_id, payload=body.context.payload, cron_id=body.context.cron_id,
+    )
+    if not dispatched:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Job dispatch failed for job_type={job_type}",
+        )
 
-    return HeartbeatResponse(success=dispatched, job_type=job_type, user_id=user_id)
+    return HeartbeatResponse(success=True, job_type=job_type, user_id=user_id)
 
 
-async def _dispatch_job(job_type: str, user_id: str, payload: dict[str, Any]) -> bool:
+async def _dispatch_job(
+    job_type: str, user_id: str, payload: dict[str, Any], cron_id: Optional[str] = None,
+) -> bool:
     """Dispatch a Paperclip heartbeat to the matching agent_runner job handler."""
+    from datetime import datetime, timezone
+
     from app.services.agent_runner import run_job
 
     runner_job_type = _HEARTBEAT_TO_RUNNER.get(job_type)
@@ -108,12 +120,23 @@ async def _dispatch_job(job_type: str, user_id: str, payload: dict[str, Any]) ->
         runner_job_type,
         user_id,
     )
+
+    # Update last_run_at before dispatch to prevent double-firing (same guard the old scheduler used)
+    if cron_id is not None:
+        try:
+            supabase.table("user_crons").update(
+                {"last_run_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("id", cron_id).execute()
+        except Exception:
+            log.exception("Failed to update last_run_at for cron_id=%s", cron_id)
+
     try:
         await run_job(
             job_type=runner_job_type,
             user_id=user_id,
             supabase_admin=supabase,
             settings=settings,
+            cron_id=cron_id,
         )
         log.info("Heartbeat dispatch OK: job_type=%s user_id=%s", job_type, user_id)
         return True

@@ -74,7 +74,7 @@ async def test_dispatch_job_calls_run_job():
         patch("app.services.agent_runner.run_job", mock_run_job),
     ):
         from app.routers.internal import _dispatch_job
-        result = await _dispatch_job(job_type="signal_scan", user_id=USER_ID, payload={})
+        result = await _dispatch_job(job_type="signal_scan", user_id=USER_ID, payload={}, cron_id="cron-123")
 
     assert result is True
     mock_run_job.assert_awaited_once_with(
@@ -82,6 +82,7 @@ async def test_dispatch_job_calls_run_job():
         user_id=USER_ID,
         supabase_admin=mock_sb,
         settings=mock_settings,
+        cron_id="cron-123",
     )
 
 
@@ -101,6 +102,7 @@ async def test_dispatch_job_contact_review():
     mock_run_job.assert_awaited_once()
     call_kwargs = mock_run_job.await_args.kwargs
     assert call_kwargs["job_type"] == "relationship_scan"
+    assert call_kwargs["cron_id"] is None
 
 
 @pytest.mark.asyncio
@@ -269,7 +271,7 @@ def test_heartbeat_happy_path_returns_200():
     assert data["user_id"] == USER_ID
 
 
-def test_heartbeat_dispatch_failure_returns_success_false():
+def test_heartbeat_dispatch_failure_returns_503():
     with (
         patch("app.routers.internal.supabase", _supabase_mock_with_user()),
         patch("app.routers.internal.settings", _settings_mock()),
@@ -281,6 +283,4 @@ def test_heartbeat_dispatch_failure_returns_success_false():
             json={"agent_id": AGENT_ID, "context": {"job_type": "signal_scan"}},
             headers={"X-Internal-Key": VALID_INTERNAL_KEY},
         )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["success"] is False
+    assert resp.status_code == 503
