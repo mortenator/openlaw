@@ -71,7 +71,7 @@ async def test_dispatch_job_calls_run_job():
     with (
         patch("app.routers.internal.supabase") as mock_sb,
         patch("app.routers.internal.settings") as mock_settings,
-        patch("app.services.agent_runner.run_job", mock_run_job),
+        patch("app.routers.internal.run_job", mock_run_job),
     ):
         from app.routers.internal import _dispatch_job
         result = await _dispatch_job(job_type="signal_scan", user_id=USER_ID, payload={}, cron_id="cron-123")
@@ -93,7 +93,7 @@ async def test_dispatch_job_contact_review():
     with (
         patch("app.routers.internal.supabase"),
         patch("app.routers.internal.settings"),
-        patch("app.services.agent_runner.run_job", mock_run_job),
+        patch("app.routers.internal.run_job", mock_run_job),
     ):
         from app.routers.internal import _dispatch_job
         result = await _dispatch_job(job_type="contact_review", user_id=USER_ID, payload={})
@@ -113,7 +113,7 @@ async def test_dispatch_job_unknown_type_logs_error():
     with (
         patch("app.routers.internal.supabase"),
         patch("app.routers.internal.settings"),
-        patch("app.services.agent_runner.run_job", mock_run_job),
+        patch("app.routers.internal.run_job", mock_run_job),
     ):
         from app.routers.internal import _dispatch_job
         result = await _dispatch_job(job_type="nonexistent_type", user_id=USER_ID, payload={})
@@ -130,7 +130,7 @@ async def test_dispatch_job_run_job_exception_is_caught():
     with (
         patch("app.routers.internal.supabase"),
         patch("app.routers.internal.settings"),
-        patch("app.services.agent_runner.run_job", mock_run_job),
+        patch("app.routers.internal.run_job", mock_run_job),
     ):
         from app.routers.internal import _dispatch_job
         # Should not raise — returns False on failure

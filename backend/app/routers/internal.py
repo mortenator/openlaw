@@ -128,7 +128,11 @@ async def _dispatch_job(
                 {"last_run_at": datetime.now(timezone.utc).isoformat()}
             ).eq("id", cron_id).execute()
         except Exception:
-            log.exception("Failed to update last_run_at for cron_id=%s", cron_id)
+            log.warning(
+                "Failed to update last_run_at for cron_id=%s — double-fire guard not set; aborting dispatch",
+                cron_id,
+            )
+            return False
 
     try:
         await run_job(
