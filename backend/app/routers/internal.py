@@ -17,6 +17,13 @@ router = APIRouter(prefix="/internal", tags=["internal"])
 
 SUPPORTED_JOB_TYPES = {"daily_briefing", "contact_review", "signal_scan"}
 
+# Map Paperclip heartbeat job types → agent_runner job types
+_HEARTBEAT_TO_RUNNER: dict[str, str] = {
+    "signal_scan": "market_brief",
+    "contact_review": "relationship_scan",
+    "daily_briefing": "weekly_digest",
+}
+
 
 class HeartbeatContext(BaseModel):
     job_type: str
@@ -87,12 +94,27 @@ async def heartbeat(
 
 
 async def _dispatch_job(job_type: str, user_id: str, payload: dict[str, Any]) -> None:
-    """Stub dispatcher — replace with real job invocation in Phase 4."""
-    log.info("Dispatching job '%s' for user %s (payload keys: %s)", job_type, user_id, list(payload.keys()))
-    # TODO(phase4): wire to jobs.py handlers
-    # if job_type == "daily_briefing":
-    #     await run_daily_briefing(user_id, payload)
-    # elif job_type == "contact_review":
-    #     await run_contact_review(user_id, payload)
-    # elif job_type == "signal_scan":
-    #     await run_signal_scan(user_id, payload)
+    """Dispatch a Paperclip heartbeat to the matching agent_runner job handler."""
+    from app.services.agent_runner import run_job
+
+    runner_job_type = _HEARTBEAT_TO_RUNNER.get(job_type)
+    if runner_job_type is None:
+        log.error("No runner mapping for heartbeat job_type=%s", job_type)
+        return
+
+    log.info(
+        "Dispatching heartbeat job_type=%s → runner=%s for user %s",
+        job_type,
+        runner_job_type,
+        user_id,
+    )
+    try:
+        await run_job(
+            job_type=runner_job_type,
+            user_id=user_id,
+            supabase_admin=supabase,
+            settings=settings,
+        )
+        log.info("Heartbeat dispatch OK: job_type=%s user_id=%s", job_type, user_id)
+    except Exception:
+        log.exception("Heartbeat dispatch FAILED: job_type=%s user_id=%s", job_type, user_id)

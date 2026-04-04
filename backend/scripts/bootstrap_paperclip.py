@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 # Monthly token budget per agent in cents. Override via PAPERCLIP_DEFAULT_BUDGET_CENTS env var.
 # Default: 5000 cents = $50/month.
 DEFAULT_BUDGET_MONTHLY_CENTS = int(os.getenv("PAPERCLIP_DEFAULT_BUDGET_CENTS", "5000"))
+HEARTBEAT_INTERVAL_SEC = int(os.getenv("PAPERCLIP_HEARTBEAT_INTERVAL_SEC", "3600"))
 
 
 async def bootstrap_user(
@@ -78,8 +79,8 @@ async def bootstrap_user(
                 "adapterType": "process",
                 "runtimeConfig": {
                     "heartbeat": {
-                        "enabled": False,
-                        "intervalSec": 0,
+                        "enabled": True,
+                        "intervalSec": HEARTBEAT_INTERVAL_SEC,
                     }
                 },
                 "budgetMonthlyCents": DEFAULT_BUDGET_MONTHLY_CENTS,

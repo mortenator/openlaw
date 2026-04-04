@@ -28,13 +28,12 @@ async def lifespan(app: FastAPI):
     except Exception:
         log.warning("onboarding_sessions.is_complete missing — migration needed")
 
-    # Start in-process cron scheduler
-    from app.scheduler import start_scheduler, stop_scheduler
-    start_scheduler()
+    # Scheduling is handled by Paperclip heartbeats (Phase 4).
+    # The in-process cron scheduler (scheduler.py) and Railway cron
+    # (dispatch_crons.py) are deprecated — see enable_heartbeats.py
+    # for the migration script.
 
     yield
-
-    stop_scheduler()
 
 from app.routers import (
     deliveries,

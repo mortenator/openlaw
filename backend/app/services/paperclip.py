@@ -17,6 +17,7 @@ from app.database import supabase
 log = logging.getLogger(__name__)
 
 DEFAULT_BUDGET_MONTHLY_CENTS = int(os.getenv("PAPERCLIP_DEFAULT_BUDGET_CENTS", "5000"))
+HEARTBEAT_INTERVAL_SEC = int(os.getenv("PAPERCLIP_HEARTBEAT_INTERVAL_SEC", "3600"))
 
 
 async def provision_user(user_id: str, user_name: str, firm: str | None = None) -> dict:
@@ -101,8 +102,8 @@ async def provision_user(user_id: str, user_name: str, firm: str | None = None) 
                     "adapterType": "process",
                     "runtimeConfig": {
                         "heartbeat": {
-                            "enabled": False,
-                            "intervalSec": 0,
+                            "enabled": True,
+                            "intervalSec": HEARTBEAT_INTERVAL_SEC,
                         }
                     },
                     "budgetMonthlyCents": DEFAULT_BUDGET_MONTHLY_CENTS,

@@ -1,4 +1,8 @@
-"""Cron dispatcher script — Railway calls this every 15 minutes."""
+"""DEPRECATED — Cron dispatcher script (Railway called this every 15 minutes).
+
+Replaced by Paperclip heartbeat scheduling in Phase 4.
+Kept for rollback safety; will be removed in a future cleanup PR.
+"""
 import logging
 import os
 from datetime import datetime, timezone

@@ -8,6 +8,5 @@ healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 
-[[crons]]
-schedule = "*/15 * * * *"
-command = "python scripts/dispatch_crons.py"
+# Railway crons removed — scheduling handled by Paperclip heartbeats (Phase 4).
+# See backend/scripts/enable_heartbeats.py for the migration script.
