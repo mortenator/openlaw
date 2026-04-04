@@ -51,7 +51,7 @@ export default function OnboardingBootingPage() {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
           // No session — just redirect after animations
-          setReady(true)
+          if (!cancelled) setReady(true)
           return
         }
         const status = await api.onboarding.status(session.access_token)
