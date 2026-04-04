@@ -15,14 +15,14 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 
-SUPPORTED_JOB_TYPES = {"daily_briefing", "contact_review", "signal_scan"}
-
 # Map Paperclip heartbeat job types → agent_runner job types
 _HEARTBEAT_TO_RUNNER: dict[str, str] = {
     "signal_scan": "market_brief",
     "contact_review": "relationship_scan",
     "daily_briefing": "weekly_digest",
 }
+
+SUPPORTED_JOB_TYPES = frozenset(_HEARTBEAT_TO_RUNNER)
 
 
 class HeartbeatContext(BaseModel):
