@@ -20,8 +20,21 @@ _CLASSIFY_PROMPT = (
 )
 
 
+class BraveAPIError(Exception):
+    """Raised when Brave Search API returns an authentication or configuration error."""
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        self.status_code = status_code
+        self.detail = detail
+        super().__init__(f"Brave API error (HTTP {status_code}): {detail}")
+
+
 async def fetch_signals(query: str, count: int = 10) -> list[dict]:
-    """Query Brave News Search API and return raw result items."""
+    """Query Brave News Search API and return raw result items.
+
+    Raises BraveAPIError on 401/403 (auth failures) so callers can
+    distinguish "no results" from "bad API key".
+    """
     headers = {
         "Accept": "application/json",
         "Accept-Encoding": "gzip",
@@ -31,11 +44,23 @@ async def fetch_signals(query: str, count: int = 10) -> list[dict]:
 
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.get(_BRAVE_SEARCH_URL, headers=headers, params=params)
+
+        if response.status_code in (401, 403):
+            body = response.text[:200]
+            log.error(
+                "Brave API auth failure (HTTP %d) for query %r — check BRAVE_API_KEY: %s",
+                response.status_code, query, body,
+            )
+            raise BraveAPIError(
+                status_code=response.status_code,
+                detail=f"Authentication failed — verify BRAVE_API_KEY is valid. Response: {body}",
+            )
+
         response.raise_for_status()
         data = response.json()
 
     if "error" in data:
-        log.warning("Brave API error: %s", data["error"])
+        log.warning("Brave API error in response body: %s", data["error"])
         return []
 
     # Web search returns results under data["web"]["results"]
@@ -89,6 +114,7 @@ async def scan_market_for_user(
     ).data or []
 
     inserted = 0
+    errors: list[str] = []
 
     # Use async with to ensure connection pool is properly closed after the job
     async with anthropic.AsyncAnthropic(api_key=anthropic_api_key) as anthropic_client:
@@ -106,8 +132,13 @@ async def scan_market_for_user(
 
             try:
                 articles = await fetch_signals(query, count=5)
+            except BraveAPIError:
+                # Auth errors should fail loudly — don't silently return 0 signals
+                raise
             except Exception:
-                log.warning("fetch_signals failed for company=%r query=%r", company_name, query, exc_info=True)
+                msg = f"fetch_signals failed for company={company_name!r} query={query!r}"
+                log.warning(msg, exc_info=True)
+                errors.append(msg)
                 continue
 
             # Filter to new articles only (dedup before classification)
@@ -167,4 +198,13 @@ async def scan_market_for_user(
                 ).execute()
                 inserted += 1
 
-    return {"signals_inserted": inserted}
+    result = {
+        "signals_inserted": inserted,
+        "companies_scanned": len(companies),
+        "errors": errors,
+    }
+    log.info(
+        "market_scan completed for user=%s: %d signals inserted, %d companies scanned, %d errors",
+        user_id, inserted, len(companies), len(errors),
+    )
+    return result

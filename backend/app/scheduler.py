@@ -76,14 +76,17 @@ async def _tick() -> None:
             continue
 
         try:
-            await run_job(
+            job_result = await run_job(
                 job_type=job_type,
                 user_id=user_id,
                 supabase_admin=supabase,
                 settings=settings,
                 cron_id=cron_id,
             )
-            log.info("Scheduler: job_type=%s cron_id=%s completed OK", job_type, cron_id)
+            log.info(
+                "Scheduler: job_type=%s cron_id=%s completed — result=%s",
+                job_type, cron_id, job_result,
+            )
         except Exception:
             log.exception("Scheduler: job_type=%s cron_id=%s failed", job_type, cron_id)
 
