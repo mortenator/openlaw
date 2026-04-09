@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Optional
 
 import httpx
 
@@ -39,7 +38,6 @@ def _mock_supabase(
 
     # signals insert chain
     insert_chain = MagicMock()
-    insert_chain.insert.return_value = insert_chain
     insert_chain.execute.return_value = MagicMock(data=[{"id": "new-signal"}])
 
     def _table_router(name: str):
@@ -50,9 +48,6 @@ def _mock_supabase(
             dual = MagicMock()
             dual.select.return_value = signals_chain
             dual.insert.return_value = insert_chain
-            # Forward eq/limit for dedup chain
-            signals_chain.eq.return_value = signals_chain
-            signals_chain.limit.return_value = signals_chain
             return dual
         return MagicMock()
 
@@ -272,7 +267,6 @@ class TestBraveAPIKeyValidation:
 
     def _make_settings(self, brave_key: str):
         """Construct a fresh Settings instance with the given BRAVE_API_KEY."""
-        import importlib
         import os
         import sys
 
@@ -282,7 +276,6 @@ class TestBraveAPIKeyValidation:
             mod = sys.modules.pop("app.config", None)
             try:
                 import app.config as cfg
-                importlib.reload(cfg)
                 return cfg.Settings()
             finally:
                 # Restore original module to not break other tests
