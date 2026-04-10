@@ -17,6 +17,7 @@ from app.database import supabase
 log = logging.getLogger(__name__)
 
 DEFAULT_BUDGET_MONTHLY_CENTS = int(os.getenv("PAPERCLIP_DEFAULT_BUDGET_CENTS", "5000"))
+HEARTBEAT_INTERVAL_SEC = int(os.getenv("PAPERCLIP_HEARTBEAT_INTERVAL_SEC", "3600"))
 
 
 async def provision_user(user_id: str, user_name: str, firm: str | None = None) -> dict:
@@ -61,10 +62,8 @@ async def provision_user(user_id: str, user_name: str, firm: str | None = None) 
         not settings.paperclip_base_url.startswith("http://localhost")
         and not settings.paperclip_base_url.startswith("http://127.")
     ):
-        log.warning(
-            "provision_user: PAPERCLIP_BASE_URL is non-local (%s) but PAPERCLIP_API_KEY is not set. "
-            "Requests may fail if Paperclip is in authenticated mode.",
-            settings.paperclip_base_url,
+        raise RuntimeError(
+            f"PAPERCLIP_API_KEY must be set when PAPERCLIP_BASE_URL is non-local ({settings.paperclip_base_url})"
         )
 
     company_name = f"{user_name} ({firm or 'Independent'})"
@@ -101,8 +100,8 @@ async def provision_user(user_id: str, user_name: str, firm: str | None = None) 
                     "adapterType": "process",
                     "runtimeConfig": {
                         "heartbeat": {
-                            "enabled": False,
-                            "intervalSec": 0,
+                            "enabled": True,
+                            "intervalSec": HEARTBEAT_INTERVAL_SEC,
                         }
                     },
                     "budgetMonthlyCents": DEFAULT_BUDGET_MONTHLY_CENTS,

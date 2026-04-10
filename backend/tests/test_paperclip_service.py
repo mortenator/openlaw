@@ -90,7 +90,7 @@ async def test_provision_user_fresh():
         json={
             "name": "OpenLaw Agent",
             "adapterType": "process",
-            "runtimeConfig": {"heartbeat": {"enabled": False, "intervalSec": 0}},
+            "runtimeConfig": {"heartbeat": {"enabled": True, "intervalSec": 3600}},
             "budgetMonthlyCents": 5000,
         },
     )
@@ -165,7 +165,7 @@ async def test_provision_user_half_bootstrapped():
         json={
             "name": "OpenLaw Agent",
             "adapterType": "process",
-            "runtimeConfig": {"heartbeat": {"enabled": False, "intervalSec": 0}},
+            "runtimeConfig": {"heartbeat": {"enabled": True, "intervalSec": 3600}},
             "budgetMonthlyCents": 5000,
         },
     )

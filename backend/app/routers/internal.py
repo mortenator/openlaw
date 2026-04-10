@@ -1,7 +1,7 @@
 """Internal endpoints called by the Paperclip agent execution backend."""
 import logging
 import secrets
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, status
@@ -15,12 +15,20 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 
-SUPPORTED_JOB_TYPES = {"daily_briefing", "contact_review", "signal_scan"}
+# Map Paperclip heartbeat job types → agent_runner job types
+_HEARTBEAT_TO_RUNNER: dict[str, str] = {
+    "signal_scan": "market_brief",
+    "contact_review": "relationship_scan",
+    "daily_briefing": "weekly_digest",
+}
+
+SUPPORTED_JOB_TYPES = frozenset(_HEARTBEAT_TO_RUNNER)
 
 
 class HeartbeatContext(BaseModel):
     job_type: str
     payload: dict[str, Any] = {}
+    cron_id: Optional[str] = None  # populated by Paperclip for jobs needing per-user config
 
 
 class HeartbeatRequest(BaseModel):
@@ -74,25 +82,67 @@ async def heartbeat(
     user = result.data
     user_id: str = user["id"]
 
-    # Stub dispatch — jobs.py will be wired here in a later phase
     log.info(
         "Heartbeat received: job_type=%s user_id=%s agent_id=%.8s…",
         job_type,
         user_id,
         str(body.agent_id),  # truncated — avoid logging full UUID in plaintext
     )
-    await _dispatch_job(job_type=job_type, user_id=user_id, payload=body.context.payload)
+    dispatched = await _dispatch_job(
+        job_type=job_type, user_id=user_id, payload=body.context.payload, cron_id=body.context.cron_id,
+    )
+    if not dispatched:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Job dispatch failed for job_type={job_type}",
+        )
 
     return HeartbeatResponse(success=True, job_type=job_type, user_id=user_id)
 
 
-async def _dispatch_job(job_type: str, user_id: str, payload: dict[str, Any]) -> None:
-    """Stub dispatcher — replace with real job invocation in Phase 4."""
-    log.info("Dispatching job '%s' for user %s (payload keys: %s)", job_type, user_id, list(payload.keys()))
-    # TODO(phase4): wire to jobs.py handlers
-    # if job_type == "daily_briefing":
-    #     await run_daily_briefing(user_id, payload)
-    # elif job_type == "contact_review":
-    #     await run_contact_review(user_id, payload)
-    # elif job_type == "signal_scan":
-    #     await run_signal_scan(user_id, payload)
+async def _dispatch_job(
+    job_type: str, user_id: str, payload: dict[str, Any], cron_id: Optional[str] = None,
+) -> bool:
+    """Dispatch a Paperclip heartbeat to the matching agent_runner job handler."""
+    from datetime import datetime, timezone
+
+    from app.services.agent_runner import run_job
+
+    runner_job_type = _HEARTBEAT_TO_RUNNER.get(job_type)
+    if runner_job_type is None:
+        log.error("No runner mapping for heartbeat job_type=%s", job_type)
+        return False
+
+    log.info(
+        "Dispatching heartbeat job_type=%s → runner=%s for user %s",
+        job_type,
+        runner_job_type,
+        user_id,
+    )
+
+    # Update last_run_at before dispatch to prevent double-firing (same guard the old scheduler used)
+    if cron_id is not None:
+        try:
+            supabase.table("user_crons").update(
+                {"last_run_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("id", cron_id).execute()
+        except Exception:
+            log.warning(
+                "Failed to update last_run_at for cron_id=%s — double-fire guard not set; aborting dispatch",
+                cron_id,
+            )
+            return False
+
+    try:
+        await run_job(
+            job_type=runner_job_type,
+            user_id=user_id,
+            supabase_admin=supabase,
+            settings=settings,
+            cron_id=cron_id,
+        )
+        log.info("Heartbeat dispatch OK: job_type=%s user_id=%s", job_type, user_id)
+        return True
+    except Exception:
+        log.exception("Heartbeat dispatch FAILED: job_type=%s user_id=%s", job_type, user_id)
+        return False

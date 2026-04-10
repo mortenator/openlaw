@@ -1,7 +1,10 @@
-"""In-process cron scheduler.
+"""DEPRECATED — In-process cron scheduler.
 
-On startup, a background asyncio task wakes every 60 seconds, queries user_crons
-for jobs that are due, and dispatches them via run_job. No external scheduler needed.
+Replaced by Paperclip heartbeat scheduling in Phase 4.
+Kept for rollback safety; will be removed in a future cleanup PR.
+
+Previously: a background asyncio task woke every 60 seconds, queried user_crons
+for jobs that were due, and dispatched them via run_job.
 """
 from __future__ import annotations
 
