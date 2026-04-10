@@ -1,8 +1,12 @@
 """Orchestrates running agent jobs for a specific user."""
+import logging
+
 from .health_score import compute_health_score
 from .market_scan import scan_market_for_user as _scan_market_for_user
 from .outreach import generate_outreach_suggestions
 from .digest import compile_and_send_weekly_digest
+
+log = logging.getLogger(__name__)
 
 
 async def recalculate_all_for_user(user_id: str, supabase_admin, **kwargs) -> dict:
@@ -75,6 +79,7 @@ async def run_job(
     if job_type not in JOB_TYPES:
         raise ValueError(f"Unknown job type: {job_type}")
     handler = JOB_TYPES[job_type]
+    log.info("run_job: starting job_type=%s user_id=%s cron_id=%s", job_type, user_id, cron_id)
     result = await handler(
         user_id=user_id,
         supabase_admin=supabase_admin,
@@ -84,4 +89,5 @@ async def run_job(
         from_address=getattr(settings, "resend_from_address", None),  # config.py has default
         cron_id=cron_id,
     )
+    log.info("run_job: completed job_type=%s user_id=%s result=%s", job_type, user_id, result)
     return {"job_type": job_type, "user_id": user_id, "result": result}

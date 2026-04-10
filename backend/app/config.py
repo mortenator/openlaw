@@ -10,6 +10,15 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"  # Override via ANTHROPIC_MODEL env var
     brave_api_key: str
     anthropic_api_key: str
+
+    @field_validator("brave_api_key")
+    @classmethod
+    def _brave_key_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError(
+                "BRAVE_API_KEY must be set — Brave Search is required for market_brief signals"
+            )
+        return v
     cron_secret: str
     paperclip_base_url: str = "http://localhost:3100"
     paperclip_internal_key: str  # Required — empty string rejected at startup
