@@ -105,8 +105,8 @@ async def scan_market_for_user(
             "anthropic_api_key is required for market scan — set ANTHROPIC_API_KEY env var"
         )
 
-    companies = (
-        supabase_admin.table("companies")
+    tracked_firms = (
+        supabase_admin.table("tracked_firms")
         .select("id, name")
         .eq("user_id", user_id)
         .eq("is_watchlist", True)
@@ -118,7 +118,7 @@ async def scan_market_for_user(
 
     # Use async with to ensure connection pool is properly closed after the job
     async with anthropic.AsyncAnthropic(api_key=anthropic_api_key) as anthropic_client:
-        for company in companies:
+        for company in tracked_firms:
             company_name = company["name"]
             # Sanitize quotes to avoid breaking Brave query syntax
             safe_name = company_name.replace('"', '')
@@ -200,11 +200,11 @@ async def scan_market_for_user(
 
     result = {
         "signals_inserted": inserted,
-        "companies_scanned": len(companies),
+        "companies_scanned": len(tracked_firms),
         "errors": errors,
     }
     log.info(
         "market_scan completed for user=%s: %d signals inserted, %d companies scanned, %d errors",
-        user_id, inserted, len(companies), len(errors),
+        user_id, inserted, len(tracked_firms), len(errors),
     )
     return result

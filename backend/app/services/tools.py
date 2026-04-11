@@ -201,7 +201,7 @@ async def _exec_save_company(
         row["notes"] = reason
 
     result = (
-        supabase_admin.table("companies")
+        supabase_admin.table("tracked_firms")
         .upsert(row, on_conflict="user_id,name")
         .execute()
     )
@@ -284,14 +284,14 @@ async def _exec_get_signals(
 ) -> Any:
     limit = min(tool_input.get("limit", 10), 100)
 
-    # Fetch user's companies for join lookup
-    companies_result = (
-        supabase_admin.table("companies")
+    # Fetch user's tracked firms for join lookup
+    tracked_firms_result = (
+        supabase_admin.table("tracked_firms")
         .select("id,name")
         .eq("user_id", user_id)
         .execute()
     )
-    company_map = {c["id"]: c["name"] for c in (companies_result.data or [])}
+    company_map = {c["id"]: c["name"] for c in (tracked_firms_result.data or [])}
     company_ids = list(company_map.keys())
 
     if not company_ids:

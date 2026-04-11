@@ -114,8 +114,8 @@ class TestSaveCompanyExecutor:
     @pytest.mark.asyncio
     async def test_upserts_correctly(self):
         sb = _mock_supabase()
-        companies_table = sb.table("companies")
-        companies_table.execute.return_value = MagicMock(
+        tracked_firms_table = sb.table("tracked_firms")
+        tracked_firms_table.execute.return_value = MagicMock(
             data=[{"id": "comp-uuid-456"}]
         )
 
@@ -134,7 +134,7 @@ class TestSaveCompanyExecutor:
         assert result["saved"] is True
         assert result["company_id"] == "comp-uuid-456"
 
-        upsert_call = companies_table.upsert.call_args
+        upsert_call = tracked_firms_table.upsert.call_args
         row = upsert_call[0][0]
         assert row["user_id"] == "user-2"
         assert row["name"] == "Acme Corp"
@@ -146,8 +146,8 @@ class TestSaveCompanyExecutor:
     @pytest.mark.asyncio
     async def test_upserts_minimal_fields(self):
         sb = _mock_supabase()
-        companies_table = sb.table("companies")
-        companies_table.execute.return_value = MagicMock(
+        tracked_firms_table = sb.table("tracked_firms")
+        tracked_firms_table.execute.return_value = MagicMock(
             data=[{"id": "comp-uuid-789"}]
         )
 
@@ -160,7 +160,7 @@ class TestSaveCompanyExecutor:
         )
 
         assert result["saved"] is True
-        upsert_call = companies_table.upsert.call_args
+        upsert_call = tracked_firms_table.upsert.call_args
         row = upsert_call[0][0]
         assert "industry" not in row
         assert "notes" not in row
@@ -321,10 +321,10 @@ class TestGetSignalsExecutor:
     @pytest.mark.asyncio
     async def test_returns_signals_for_user(self):
         sb = MagicMock()
-        companies_chain = MagicMock()
-        companies_chain.select.return_value = companies_chain
-        companies_chain.eq.return_value = companies_chain
-        companies_chain.execute.return_value = MagicMock(data=[
+        tracked_firms_chain = MagicMock()
+        tracked_firms_chain.select.return_value = tracked_firms_chain
+        tracked_firms_chain.eq.return_value = tracked_firms_chain
+        tracked_firms_chain.execute.return_value = MagicMock(data=[
             {"id": "co-1", "name": "Acme Corp"}
         ])
 
@@ -343,8 +343,8 @@ class TestGetSignalsExecutor:
         }])
 
         def table_side_effect(name):
-            if name == "companies":
-                return companies_chain
+            if name == "tracked_firms":
+                return tracked_firms_chain
             return signals_chain
 
         sb.table.side_effect = table_side_effect
