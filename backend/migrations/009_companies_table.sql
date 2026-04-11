@@ -1,7 +1,6 @@
--- Migration 009: create companies table (was missing from initial deployment)
--- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/nyrzxkxfbrpxygvuywlr/sql/new
+-- Migration 009: create tracked_firms table if it is still missing after the schema rename
 
-create table if not exists public.companies (
+create table if not exists public.tracked_firms (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.users(id) on delete cascade not null,
   name text not null,
@@ -14,13 +13,22 @@ create table if not exists public.companies (
   unique (user_id, name)
 );
 
-alter table public.companies enable row level security;
+alter table public.tracked_firms enable row level security;
 
-create policy "users can manage their own companies"
-  on public.companies for all using (auth.uid() = user_id);
+create index if not exists idx_tracked_firms_user_id on public.tracked_firms(user_id);
+create index if not exists idx_tracked_firms_watchlist on public.tracked_firms(user_id, is_watchlist);
 
--- Backfill watchlist companies from tracked_firms (Phase 5 onboarding data)
-insert into public.companies (id, user_id, name, is_watchlist, created_at)
-select id, user_id, name, true, created_at
-from public.tracked_firms
-on conflict (user_id, name) do nothing;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'tracked_firms'
+      and policyname = 'users can manage their own tracked firms'
+  ) then
+    create policy "users can manage their own tracked firms"
+      on public.tracked_firms for all using (auth.uid() = user_id);
+  end if;
+end
+$$;

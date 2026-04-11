@@ -41,7 +41,7 @@ def _mock_supabase(
     insert_chain.execute.return_value = MagicMock(data=[{"id": "new-signal"}])
 
     def _table_router(name: str):
-        if name == "companies":
+        if name == "tracked_firms":
             return companies_chain
         if name == "signals":
             # Return a mock that supports both .select() (dedup) and .insert()
