@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import httpx
 from app.config import settings
 from app.database import supabase
+from app.services.paperclip import build_openlaw_agent_runtime_config
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -76,12 +77,7 @@ async def bootstrap_user(
             json={
                 "name": "OpenLaw Agent",
                 "adapterType": "process",
-                "runtimeConfig": {
-                    "heartbeat": {
-                        "enabled": False,
-                        "intervalSec": 0,
-                    }
-                },
+                "runtimeConfig": build_openlaw_agent_runtime_config(),
                 "budgetMonthlyCents": DEFAULT_BUDGET_MONTHLY_CENTS,
             },
         )

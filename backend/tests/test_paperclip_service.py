@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +90,16 @@ async def test_provision_user_fresh():
         json={
             "name": "OpenLaw Agent",
             "adapterType": "process",
-            "runtimeConfig": {"heartbeat": {"enabled": False, "intervalSec": 0}},
+            "runtimeConfig": {
+                "heartbeat": {
+                    "enabled": False,
+                    "intervalSec": 0,
+                    "sessionCompaction": {
+                        "maxSessionRuns": 200,
+                        "maxSessionAgeHours": 72,
+                    },
+                }
+            },
             "budgetMonthlyCents": 5000,
         },
     )
@@ -100,6 +109,22 @@ async def test_provision_user_fresh():
     update_payloads = [c.args[0] for c in update_calls]
     assert {"paperclip_company_id": "co-1"} in update_payloads
     assert {"paperclip_agent_id": "ag-1"} in update_payloads
+
+
+@pytest.mark.asyncio
+async def test_build_openlaw_agent_runtime_config_includes_session_compaction_defaults():
+    from app.services.paperclip import build_openlaw_agent_runtime_config
+
+    assert build_openlaw_agent_runtime_config() == {
+        "heartbeat": {
+            "enabled": False,
+            "intervalSec": 0,
+            "sessionCompaction": {
+                "maxSessionRuns": 200,
+                "maxSessionAgeHours": 72,
+            },
+        }
+    }
 
 
 @pytest.mark.asyncio
@@ -165,7 +190,16 @@ async def test_provision_user_half_bootstrapped():
         json={
             "name": "OpenLaw Agent",
             "adapterType": "process",
-            "runtimeConfig": {"heartbeat": {"enabled": False, "intervalSec": 0}},
+            "runtimeConfig": {
+                "heartbeat": {
+                    "enabled": False,
+                    "intervalSec": 0,
+                    "sessionCompaction": {
+                        "maxSessionRuns": 200,
+                        "maxSessionAgeHours": 72,
+                    },
+                }
+            },
             "budgetMonthlyCents": 5000,
         },
     )

@@ -17,6 +17,26 @@ from app.database import supabase
 log = logging.getLogger(__name__)
 
 DEFAULT_BUDGET_MONTHLY_CENTS = int(os.getenv("PAPERCLIP_DEFAULT_BUDGET_CENTS", "5000"))
+DEFAULT_SESSION_COMPACTION_MAX_RUNS = 200
+DEFAULT_SESSION_COMPACTION_MAX_AGE_HOURS = 72
+
+
+def build_openlaw_agent_runtime_config() -> dict:
+    """Return the default Paperclip runtime config for OpenLaw agents.
+
+    Session compaction mirrors Paperclip's conservative adapter defaults so long-lived
+    Claude-backed sessions rotate automatically before they accumulate too much stale context.
+    """
+    return {
+        "heartbeat": {
+            "enabled": False,
+            "intervalSec": 0,
+            "sessionCompaction": {
+                "maxSessionRuns": DEFAULT_SESSION_COMPACTION_MAX_RUNS,
+                "maxSessionAgeHours": DEFAULT_SESSION_COMPACTION_MAX_AGE_HOURS,
+            },
+        }
+    }
 
 
 async def provision_user(user_id: str, user_name: str, firm: str | None = None) -> dict:
@@ -99,12 +119,7 @@ async def provision_user(user_id: str, user_name: str, firm: str | None = None) 
                 json={
                     "name": "OpenLaw Agent",
                     "adapterType": "process",
-                    "runtimeConfig": {
-                        "heartbeat": {
-                            "enabled": False,
-                            "intervalSec": 0,
-                        }
-                    },
+                    "runtimeConfig": build_openlaw_agent_runtime_config(),
                     "budgetMonthlyCents": DEFAULT_BUDGET_MONTHLY_CENTS,
                 },
             )
