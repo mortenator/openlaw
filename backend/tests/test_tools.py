@@ -338,7 +338,7 @@ class TestGetSignalsExecutor:
             "headline": "Acme raises $500M",
             "source": "investment",
             "company_id": "co-1",
-            "source_url": "https://example.com",
+            "url": "https://example.com",
             "created_at": "2026-03-01T00:00:00Z",
         }])
 
@@ -359,6 +359,7 @@ class TestGetSignalsExecutor:
         assert len(result) == 1
         assert result[0]["headline"] == "Acme raises $500M"
         assert result[0]["company_name"] == "Acme Corp"
+        assert result[0]["url"] == "https://example.com"
 
     @pytest.mark.asyncio
     async def test_empty_companies_returns_empty(self):

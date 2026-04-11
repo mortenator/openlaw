@@ -15,6 +15,9 @@ create table if not exists public.tracked_firms (
 
 alter table public.tracked_firms enable row level security;
 
+create index if not exists idx_tracked_firms_user_id on public.tracked_firms(user_id);
+create index if not exists idx_tracked_firms_watchlist on public.tracked_firms(user_id, is_watchlist);
+
 do $$
 begin
   if not exists (
