@@ -299,7 +299,7 @@ async def _exec_get_signals(
 
     query = (
         supabase_admin.table("signals")
-        .select("headline,type,company_id,source_url,created_at")
+        .select("headline,source,company_id,url,created_at")
         .eq("user_id", user_id)
         .in_("company_id", company_ids)
         .order("created_at", desc=True)
@@ -318,15 +318,15 @@ async def _exec_get_signals(
 
     signal_type = tool_input.get("signal_type")
     if signal_type:
-        query = query.eq("type", signal_type)
+        query = query.eq("source", signal_type)
 
     result = query.limit(limit).execute()
     return [
         {
             "headline": s.get("headline", ""),
-            "type": s.get("type", ""),
+            "type": s.get("source", ""),
             "company_name": company_map.get(s.get("company_id"), "Unknown"),
-            "url": s.get("source_url", ""),
+            "url": s.get("url", ""),
             "created_at": s.get("created_at", ""),
         }
         for s in (result.data or [])

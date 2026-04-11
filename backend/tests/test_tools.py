@@ -336,7 +336,7 @@ class TestGetSignalsExecutor:
         signals_chain.limit.return_value = signals_chain
         signals_chain.execute.return_value = MagicMock(data=[{
             "headline": "Acme raises $500M",
-            "type": "investment",
+            "source": "investment",
             "company_id": "co-1",
             "source_url": "https://example.com",
             "created_at": "2026-03-01T00:00:00Z",
