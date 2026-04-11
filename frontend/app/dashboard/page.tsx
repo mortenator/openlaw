@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import type { OutreachSuggestion, Signal, Contact } from '@/lib/types'
 import { HealthBadge } from '@/components/HealthBadge'
-import { Users, Send, Zap, Activity, X, ExternalLink, ArrowUpRight, Loader2 } from 'lucide-react'
+import { Users, Send, Zap, Activity, X, ExternalLink, ArrowUpRight, Loader2, CheckCircle2 } from 'lucide-react'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -18,15 +18,32 @@ const SIGNAL_STYLES: Record<string, { bg: string; text: string }> = {
   general_news: { bg: '--surface', text: '--text-secondary' },
 }
 
+type EnrichedSignalSource = {
+  title?: string
+  url?: string
+}
+
+type EnrichedSignalData = {
+  full_summary?: string
+  article_body?: string
+  key_points?: string[]
+  why_it_matters?: string
+  sources?: EnrichedSignalSource[]
+  raw_data?: EnrichedSignalData
+}
+
 export default function DashboardPage() {
   const [token, setToken] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<OutreachSuggestion[]>([])
+  const [approvedSuggestions, setApprovedSuggestions] = useState<OutreachSuggestion[]>([])
+  const [pendingSuggestionIds, setPendingSuggestionIds] = useState<Set<string>>(new Set())
+  const [approvalError, setApprovalError] = useState<string | null>(null)
   const [signals, setSignals] = useState<Signal[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [atRiskContacts, setAtRiskContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null)
-  const [enrichedData, setEnrichedData] = useState<Record<string, any> | null>(null)
+  const [enrichedData, setEnrichedData] = useState<EnrichedSignalData | null>(null)
   const [enriching, setEnriching] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -37,10 +54,12 @@ export default function DashboardPage() {
       setToken(t)
       Promise.all([
         api.suggestions.list(t, 'pending'),
+        api.suggestions.list(t, 'approved'),
         api.signals.list(t),
         api.contacts.list(t),
-      ]).then(([s, sig, allContacts]) => {
+      ]).then(([s, approved, sig, allContacts]) => {
         setSuggestions(s)
+        setApprovedSuggestions(approved)
         setSignals(sig.slice(0, 5))
         setContacts(allContacts)
         const atRisk = allContacts.filter(
@@ -81,21 +100,45 @@ export default function DashboardPage() {
     setEnrichedData(null)
   }
 
+  function isSafeExternalUrl(url: string | null | undefined) {
+    return typeof url === 'string' && url.startsWith('https://')
+  }
+
   function approve(id: string) {
-    if (!token) return
+    if (!token || pendingSuggestionIds.has(id)) return
+    setApprovalError(null)
     const previous = suggestions
+    const target = suggestions.find((s) => s.id === id)
+    setPendingSuggestionIds((prev) => new Set(prev).add(id))
     setSuggestions((prev) => prev.filter((s) => s.id !== id))
-    api.suggestions.update(token, id, 'approved').catch(() => {
+    api.suggestions.update(token, id, 'approved').then((updated) => {
+      setApprovedSuggestions((prev) => [...prev, { ...target!, ...updated }])
+    }).catch((error: unknown) => {
       setSuggestions(previous)
+      const message = error instanceof Error ? error.message : 'Could not send to review'
+      setApprovalError(message)
+    }).finally(() => {
+      setPendingSuggestionIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     })
   }
 
   function dismiss(id: string) {
-    if (!token) return
+    if (!token || pendingSuggestionIds.has(id)) return
     const previous = suggestions
+    setPendingSuggestionIds((prev) => new Set(prev).add(id))
     setSuggestions((prev) => prev.filter((s) => s.id !== id))
     api.suggestions.update(token, id, 'dismissed').catch(() => {
       setSuggestions(previous)
+    }).finally(() => {
+      setPendingSuggestionIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     })
   }
 
@@ -184,6 +227,14 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
+              {approvalError && (
+                <div
+                  style={{ background: 'var(--red-subtle)', color: 'var(--red)', border: '1px solid var(--border)' }}
+                  className="rounded-xl p-3 text-xs"
+                >
+                  {approvalError}
+                </div>
+              )}
               {suggestions.map((s) => (
                 <div
                   key={s.id}
@@ -215,15 +266,17 @@ export default function DashboardPage() {
                   <div className="mt-3 flex gap-2">
                     <button
                       onClick={() => approve(s.id)}
+                      disabled={pendingSuggestionIds.has(s.id)}
                       style={{ color: 'var(--green)' }}
-                      className="text-xs font-medium hover:opacity-80"
+                      className="text-xs font-medium hover:opacity-80 disabled:opacity-50"
                     >
-                      Approve
+                      {pendingSuggestionIds.has(s.id) ? 'Sending…' : 'Send to review'}
                     </button>
                     <button
                       onClick={() => dismiss(s.id)}
+                      disabled={pendingSuggestionIds.has(s.id)}
                       style={{ color: 'var(--red)' }}
-                      className="text-xs font-medium hover:opacity-80"
+                      className="text-xs font-medium hover:opacity-80 disabled:opacity-50"
                     >
                       Dismiss
                     </button>
@@ -231,6 +284,54 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Approved — review requested */}
+          {approvedSuggestions.length > 0 && (
+            <>
+              <div
+                style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-tertiary)' }}
+                className="text-xs font-medium uppercase tracking-wider pb-3 mb-4 mt-6"
+              >
+                Review Requested
+              </div>
+              <div className="space-y-3">
+                {approvedSuggestions.map((s) => (
+                  <div
+                    key={s.id}
+                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--green-subtle, var(--border))' }}
+                    className="rounded-xl p-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={14} style={{ color: 'var(--green)' }} />
+                      <div style={{ color: 'var(--text-primary)' }} className="font-medium text-sm">
+                        {s.contact?.name ?? 'Unknown'}
+                      </div>
+                    </div>
+                    {s.subject && (
+                      <div style={{ color: 'var(--text-tertiary)' }} className="text-xs mt-1">{s.subject}</div>
+                    )}
+                    {isSafeExternalUrl(s.paperclip_issue_url) ? (
+                      <a
+                        href={s.paperclip_issue_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--accent-text)' }}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-medium hover:opacity-80"
+                      >
+                        {s.paperclip_issue_identifier ? `View ${s.paperclip_issue_identifier} in Paperclip` : 'View in Paperclip'}
+                        <ExternalLink size={12} />
+                      </a>
+                    ) : (s.paperclip_issue_identifier || s.paperclip_issue_id) ? (
+                      <div style={{ color: 'var(--text-tertiary)' }} className="text-xs mt-2">
+                        Issue {s.paperclip_issue_identifier ?? s.paperclip_issue_id}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </>
+
           )}
         </div>
 
@@ -440,8 +541,8 @@ export default function DashboardPage() {
                     <div>
                       <div style={{ color: 'var(--text-tertiary)' }} className="text-xs font-medium uppercase tracking-wider mb-2">Sources</div>
                       <div className="space-y-2">
-                        {enrichedData.sources.map((src: {title: string; url: string}, i: number) => (
-                          src.url ? (
+                        {enrichedData.sources.map((src, i: number) => (
+                          isSafeExternalUrl(src.url) ? (
                             <a
                               key={i}
                               href={src.url}
@@ -488,7 +589,7 @@ export default function DashboardPage() {
               style={{ borderTop: '1px solid var(--border)' }}
               className="px-6 py-4"
             >
-              {selectedSignal.url ? (
+              {isSafeExternalUrl(selectedSignal.url) ? (
                 <a
                   href={selectedSignal.url}
                   target="_blank"

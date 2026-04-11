@@ -42,8 +42,11 @@ export interface OutreachSuggestion {
   signal_id: string | null
   subject: string | null
   draft_message: string | null
-  trigger_summary?: string | null
-  status: 'pending' | 'dismissed' | 'sent'
+  trigger_summary: string | null
+  status: 'pending' | 'approved' | 'dismissed' | 'sent'
+  paperclip_issue_id?: string | null
+  paperclip_issue_identifier?: string | null
+  paperclip_issue_url?: string | null
   created_at: string
   contact?: Contact
 }

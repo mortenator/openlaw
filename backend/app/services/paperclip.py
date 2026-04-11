@@ -20,6 +20,21 @@ DEFAULT_BUDGET_MONTHLY_CENTS = int(os.getenv("PAPERCLIP_DEFAULT_BUDGET_CENTS", "
 HEARTBEAT_INTERVAL_SEC = int(os.getenv("PAPERCLIP_HEARTBEAT_INTERVAL_SEC", "3600"))
 
 
+def _build_headers() -> dict[str, str]:
+    paperclip_api_key = os.getenv("PAPERCLIP_API_KEY")
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if paperclip_api_key:
+        headers["Authorization"] = f"Bearer {paperclip_api_key}"
+    elif (
+        not settings.paperclip_base_url.startswith("http://localhost")
+        and not settings.paperclip_base_url.startswith("http://127.")
+    ):
+        raise RuntimeError(
+            f"PAPERCLIP_API_KEY must be set when PAPERCLIP_BASE_URL is non-local ({settings.paperclip_base_url})"
+        )
+    return headers
+
+
 async def provision_user(user_id: str, user_name: str, firm: str | None = None) -> dict:
     """Ensure the given user has a Paperclip company + agent.
 
@@ -54,17 +69,7 @@ async def provision_user(user_id: str, user_name: str, firm: str | None = None) 
             "created": False,
         }
 
-    paperclip_api_key = os.getenv("PAPERCLIP_API_KEY")
-    headers: dict[str, str] = {"Content-Type": "application/json"}
-    if paperclip_api_key:
-        headers["Authorization"] = f"Bearer {paperclip_api_key}"
-    elif (
-        not settings.paperclip_base_url.startswith("http://localhost")
-        and not settings.paperclip_base_url.startswith("http://127.")
-    ):
-        raise RuntimeError(
-            f"PAPERCLIP_API_KEY must be set when PAPERCLIP_BASE_URL is non-local ({settings.paperclip_base_url})"
-        )
+    headers = _build_headers()
 
     company_name = f"{user_name} ({firm or 'Independent'})"
 
@@ -120,4 +125,71 @@ async def provision_user(user_id: str, user_name: str, firm: str | None = None) 
         "paperclip_company_id": paperclip_company_id,
         "paperclip_agent_id": paperclip_agent_id,
         "created": True,
+    }
+
+
+async def create_outreach_issue(
+    paperclip_company_id: str,
+    suggestion: dict,
+) -> dict:
+    """Create a Paperclip issue for an approved outreach suggestion.
+
+    Returns a dict with ``issue_id``, ``issue_identifier``, and ``issue_url``.
+
+    Callers must ensure idempotency — this function always creates a new issue.
+    The router guards against duplicates by checking ``paperclip_issue_id``
+    before calling.
+    """
+    contact = suggestion.get("contact") or suggestion.get("contacts") or {}
+    if isinstance(contact, list):
+        contact = contact[0] if contact else {}
+
+    contact_name = contact.get("name", "Unknown contact")
+    subject = suggestion.get("subject") or f"Outreach to {contact_name}"
+
+    body_parts: list[str] = []
+    if suggestion.get("trigger_summary"):
+        body_parts.append(f"**Why now:** {suggestion['trigger_summary']}")
+    draft = suggestion.get("edited_body") or suggestion.get("body") or suggestion.get("draft_message") or ""
+    if draft:
+        body_parts.append(f"**Draft message:**\n\n{draft}")
+    signal_id = suggestion.get("signal_id")
+    if signal_id:
+        body_parts.append(f"**OpenLaw signal:** {signal_id}")
+
+    headers = _build_headers()
+
+    async with httpx.AsyncClient(
+        base_url=settings.paperclip_base_url,
+        headers=headers,
+        timeout=30.0,
+    ) as client:
+        resp = await client.post(
+            f"/api/companies/{paperclip_company_id}/issues",
+            json={
+                "title": f"Review outreach: {subject}",
+                "description": "\n\n".join(body_parts),
+                "status": "todo",
+                "priority": "high",
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    issue_id = data["id"]
+    issue_identifier = data.get("identifier")
+    issue_url = data.get("url") or (
+        f"{settings.paperclip_base_url.rstrip('/')}/companies/{paperclip_company_id}/issues/{issue_id}"
+    )
+
+    log.info(
+        "create_outreach_issue: created issue %s for suggestion %s",
+        issue_id,
+        suggestion.get("id"),
+    )
+
+    return {
+        "issue_id": issue_id,
+        "issue_identifier": issue_identifier,
+        "issue_url": issue_url,
     }
